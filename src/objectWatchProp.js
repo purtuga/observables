@@ -7,6 +7,7 @@ export const OBSERVABLE_IDENTIFIER = "___$observable$___"; // FIXME: this should
 const DEFAULT_PROP_DEFINITION = { configurable: true, enumerable: true };
 const TRACKERS = new Set();
 const WATCHER_IDENTIFIER = "___$watching$___";
+const isPureObject = obj => obj && Object.prototype.toString.call(obj) === "[object Object]";
 
 /**
  * A lightweight utility to Watch an object's properties and get notified when it changes.
@@ -31,9 +32,7 @@ const WATCHER_IDENTIFIER = "___$watching$___";
  * const unWatchName = objectWatchProp(oo, "name", () => console.log(`name changed: ${oo.name}`));
  *
  * oo.name = "paul"; // console outputs: name changed: paul
- *
- * // stop watching
- * unWatchName();
+ * unWatchName(); // stop watching
  *
  * @example
  *
@@ -45,18 +44,13 @@ const WATCHER_IDENTIFIER = "___$watching$___";
  * // watch all changes to object
  * objectWatchProp(oo, null, () => console.log("Something changed in object"));
  *
+ * // OR: make all properties of object observable
+ * objectWatchProp(oo);
+ *
  */
 export function objectWatchProp(obj, prop, callback) {
     if (!obj[OBSERVABLE_IDENTIFIER]) {
-        objectDefineProperty(obj, OBSERVABLE_IDENTIFIER, {
-            configurable: true,
-            writable: true,
-            value: {
-                props: {},
-                watchers: new Set()
-            }
-        });
-        setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].watchers, true);
+        setupObjState(obj);
     }
 
     // Convert prop to observable?
@@ -75,13 +69,7 @@ export function objectWatchProp(obj, prop, callback) {
         obj[OBSERVABLE_IDENTIFIER].props[prop].storeCallback(callback);
     }
     else if (!prop) {
-        // make ALL props observable
-        objectKeys(obj).forEach(objProp => {
-            if (!obj[OBSERVABLE_IDENTIFIER].props[objProp]) {
-                setupPropState(obj, objProp);
-                setupPropInterceptors(obj, objProp);
-            }
-        });
+        objectMakeObservable(obj, false);
 
         if (callback) {
             // FIXME: should use `storeCallback` here?
@@ -105,6 +93,21 @@ export function objectWatchProp(obj, prop, callback) {
     return unWatch;
 }
 
+function setupObjState(obj) {
+    if (!obj[OBSERVABLE_IDENTIFIER]) {
+        objectDefineProperty(obj, OBSERVABLE_IDENTIFIER, {
+            configurable: true,
+            writable: true,
+            deep: false,
+            value: {
+                props: {},
+                watchers: new Set()
+            }
+        });
+        setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].watchers, true);
+    }
+}
+
 function setupCallbackStore (store, async = false) {
     store.async = async;
     store.isQueued = false;
@@ -123,7 +126,8 @@ function setupPropState(obj, prop) {
             watchers: new Set(),
             parent: obj[OBSERVABLE_IDENTIFIER],
             storeCallback: storeCallback,
-            setupInterceptors: true
+            setupInterceptors: true,
+            deep: false
         };
         setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].props[prop].dependents, false);
         setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].props[prop].watchers, true);
@@ -162,6 +166,12 @@ function setupPropInterceptors(obj, prop) {
                 obj[OBSERVABLE_IDENTIFIER].props[prop].val = newVal;
             }
 
+            // If this `deep` is true and the new value is an object,
+            // then ensure its observable
+            if (obj[OBSERVABLE_IDENTIFIER].props[prop].deep  && isPureObject(newVal)) {
+                objectMakeObservable(newVal);
+            }
+
             if (newVal !== priorVal) {
                 obj[OBSERVABLE_IDENTIFIER].props[prop].watchers.notify();
                 obj[OBSERVABLE_IDENTIFIER].props[prop].dependents.notify();
@@ -172,6 +182,50 @@ function setupPropInterceptors(obj, prop) {
         }
     });
     obj[OBSERVABLE_IDENTIFIER].props[prop].setupInterceptors = false;
+}
+
+/**
+ * Makes an object (deep) observable.
+ *
+ * @param {Object} obj
+ * @param {Boolean} [walk=true]
+ *  If `true` (default), the object's property values are walked and
+ *  also make observable.
+ */
+export function objectMakeObservable(obj, walk = true) {
+    if (!isPureObject(obj)) {
+        return;
+    }
+
+    if (!obj[OBSERVABLE_IDENTIFIER]) {
+        setupObjState(obj);
+    }
+
+    // If object is marked as "deep", then no need to do anything
+    // else - object has already been converted to observable.
+    if (obj[OBSERVABLE_IDENTIFIER].deep) {
+        return;
+    }
+    else if (walk) {
+        obj[OBSERVABLE_IDENTIFIER].deep = true;
+    }
+
+    // make ALL props observable
+    objectKeys(obj).forEach(prop => {   // TODO: can this function be made static?
+        if (!obj[OBSERVABLE_IDENTIFIER].props[prop]) {
+            setupPropState(obj, prop);
+            setupPropInterceptors(obj, prop);
+        }
+
+        // Do we need to walk this property's value?
+        if (walk && !obj[OBSERVABLE_IDENTIFIER].props[prop].deep) {
+            obj[OBSERVABLE_IDENTIFIER].props[prop].deep = true;
+
+            if (isPureObject(obj[prop])) {
+                objectMakeObservable(obj[prop]);
+            }
+        }
+    });
 }
 
 function notify() {
