@@ -18,6 +18,9 @@
         "type": "git",
         "url": "git+https://github.com/purtuga/observables.git"
     },
+    "@std/esm": {
+        "esm": "all"
+    },
     "keywords": [],
     "author": "Paul Tavares",
     "license": "MIT",

@@ -41,6 +41,8 @@ export function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
             needsNewValue = true;
         }
     };
+    dependencyTracker.asDependent = true;
+    dependencyTracker.forProp = prop;
 
     const setPropValue = silentSet => {
         setDependencyTracker(dependencyTracker);
@@ -54,7 +56,10 @@ export function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
                 // Doing the update this way also supports the use of these
                 // objects with other library that may also intercept getter/setters.
                 allowSet = true;
-                obj[prop] = setter.call(obj, obj);
+                needsNewValue = false;
+                const newValue = setter.call(obj, obj);
+                unsetDependencyTracker(dependencyTracker); // IMPORTANT: turn if off right after setter is run!
+                obj[prop] = newValue;
             }
         } catch (e) {
             allowSet = false;
