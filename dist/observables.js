@@ -169,6 +169,7 @@
         });
         /* harmony export (immutable) */
         __webpack_exports__.b = objectWatchProp;
+        /* unused harmony export objectMakeObservable */
         /* harmony export (immutable) */
         __webpack_exports__.c = setDependencyTracker;
         /* harmony export (immutable) */
@@ -190,6 +191,9 @@
         };
         var TRACKERS = new __WEBPACK_IMPORTED_MODULE_1_common_micro_libs_src_jsutils_Set__.a();
         var WATCHER_IDENTIFIER = "___$watching$___";
+        var isPureObject = function(obj) {
+            return obj && "[object Object]" === Object.prototype.toString.call(obj);
+        };
         /**
  * A lightweight utility to Watch an object's properties and get notified when it changes.
  *
@@ -213,9 +217,7 @@
  * const unWatchName = objectWatchProp(oo, "name", () => console.log(`name changed: ${oo.name}`));
  *
  * oo.name = "paul"; // console outputs: name changed: paul
- *
- * // stop watching
- * unWatchName();
+ * unWatchName(); // stop watching
  *
  * @example
  *
@@ -227,32 +229,19 @@
  * // watch all changes to object
  * objectWatchProp(oo, null, () => console.log("Something changed in object"));
  *
+ * // OR: make all properties of object observable
+ * objectWatchProp(oo);
+ *
  */
         function objectWatchProp(obj, prop, callback) {
-            if (!obj[OBSERVABLE_IDENTIFIER]) {
-                Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.d)(obj, OBSERVABLE_IDENTIFIER, {
-                    configurable: true,
-                    writable: true,
-                    value: {
-                        props: {},
-                        watchers: new __WEBPACK_IMPORTED_MODULE_1_common_micro_libs_src_jsutils_Set__.a()
-                    }
-                });
-                setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].watchers, true);
-            }
+            obj[OBSERVABLE_IDENTIFIER] || setupObjState(obj);
             // Convert prop to observable?
             if (prop && !obj[OBSERVABLE_IDENTIFIER].props[prop]) {
                 setupPropState(obj, prop);
                 setupPropInterceptors(obj, prop);
             } else prop && obj[OBSERVABLE_IDENTIFIER].props[prop].setupInterceptors && setupPropInterceptors(obj, prop);
             if (prop && callback) obj[OBSERVABLE_IDENTIFIER].props[prop].storeCallback(callback); else if (!prop) {
-                // make ALL props observable
-                Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.e)(obj).forEach(function(objProp) {
-                    if (!obj[OBSERVABLE_IDENTIFIER].props[objProp]) {
-                        setupPropState(obj, objProp);
-                        setupPropInterceptors(obj, objProp);
-                    }
-                });
+                objectMakeObservable(obj, false);
                 callback && // FIXME: should use `storeCallback` here?
                 obj[OBSERVABLE_IDENTIFIER].watchers.add(callback);
             }
@@ -265,6 +254,20 @@
             var unWatch = destroyWatcher.bind(obj, callback, prop ? obj[OBSERVABLE_IDENTIFIER].props[prop] : obj[OBSERVABLE_IDENTIFIER]);
             unWatch.destroy = unWatch;
             return unWatch;
+        }
+        function setupObjState(obj) {
+            if (!obj[OBSERVABLE_IDENTIFIER]) {
+                Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.d)(obj, OBSERVABLE_IDENTIFIER, {
+                    configurable: true,
+                    writable: true,
+                    deep: false,
+                    value: {
+                        props: {},
+                        watchers: new __WEBPACK_IMPORTED_MODULE_1_common_micro_libs_src_jsutils_Set__.a()
+                    }
+                });
+                setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].watchers, true);
+            }
         }
         function setupCallbackStore(store) {
             var async = arguments.length > 1 && void 0 !== arguments[1] && arguments[1];
@@ -284,7 +287,8 @@
                     watchers: new __WEBPACK_IMPORTED_MODULE_1_common_micro_libs_src_jsutils_Set__.a(),
                     parent: obj[OBSERVABLE_IDENTIFIER],
                     storeCallback: storeCallback,
-                    setupInterceptors: true
+                    setupInterceptors: true,
+                    deep: false
                 };
                 setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].props[prop].dependents, false);
                 setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].props[prop].watchers, true);
@@ -307,6 +311,9 @@
                 set: function(newVal) {
                     var priorVal = obj[prop];
                     propOldDescriptor.set ? newVal = propOldDescriptor.set.call(obj, newVal) : obj[OBSERVABLE_IDENTIFIER].props[prop].val = newVal;
+                    // If this `deep` is true and the new value is an object,
+                    // then ensure its observable
+                    obj[OBSERVABLE_IDENTIFIER].props[prop].deep && isPureObject(newVal) && objectMakeObservable(newVal);
                     if (newVal !== priorVal) {
                         obj[OBSERVABLE_IDENTIFIER].props[prop].watchers.notify();
                         obj[OBSERVABLE_IDENTIFIER].props[prop].dependents.notify();
@@ -316,6 +323,36 @@
                 }
             });
             obj[OBSERVABLE_IDENTIFIER].props[prop].setupInterceptors = false;
+        }
+        /**
+ * Makes an object (deep) observable.
+ *
+ * @param {Object} obj
+ * @param {Boolean} [walk=true]
+ *  If `true` (default), the object's property values are walked and
+ *  also make observable.
+ */
+        function objectMakeObservable(obj) {
+            var walk = !(arguments.length > 1 && void 0 !== arguments[1]) || arguments[1];
+            if (!isPureObject(obj)) return;
+            obj[OBSERVABLE_IDENTIFIER] || setupObjState(obj);
+            // If object is marked as "deep", then no need to do anything
+            // else - object has already been converted to observable.
+            if (obj[OBSERVABLE_IDENTIFIER].deep) return;
+            walk && (obj[OBSERVABLE_IDENTIFIER].deep = true);
+            // make ALL props observable
+            Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.e)(obj).forEach(function(prop) {
+                // TODO: can this function be made static?
+                if (!obj[OBSERVABLE_IDENTIFIER].props[prop]) {
+                    setupPropState(obj, prop);
+                    setupPropInterceptors(obj, prop);
+                }
+                // Do we need to walk this property's value?
+                if (walk && !obj[OBSERVABLE_IDENTIFIER].props[prop].deep) {
+                    obj[OBSERVABLE_IDENTIFIER].props[prop].deep = true;
+                    isPureObject(obj[prop]) && objectMakeObservable(obj[prop]);
+                }
+            });
         }
         function notify() {
             // this: new Set(). Set instance could have two additional attributes: async ++ isQueued
@@ -715,6 +752,8 @@
                 // time the object prop is accessed.
                 obj[__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.a].props[prop].dependents.size || obj[__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.a].props[prop].watchers.size ? setPropValue() : needsNewValue = true;
             };
+            dependencyTracker.asDependent = true;
+            dependencyTracker.forProp = prop;
             var setPropValue = function(silentSet) {
                 Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.c)(dependencyTracker);
                 try {
@@ -725,7 +764,11 @@
                         // Doing the update this way also supports the use of these
                         // objects with other library that may also intercept getter/setters.
                         allowSet = true;
-                        obj[prop] = setter.call(obj, obj);
+                        needsNewValue = false;
+                        var newValue = setter.call(obj, obj);
+                        Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.e)(dependencyTracker);
+                        // IMPORTANT: turn if off right after setter is run!
+                        obj[prop] = newValue;
                     }
                 } catch (e) {
                     allowSet = false;
