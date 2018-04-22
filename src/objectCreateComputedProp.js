@@ -44,6 +44,11 @@ export function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
 
             if (silentSet) {
                 propValue = newValue;
+
+                // FIXME: if property is marked as "deep", then make value observable.
+                //          This only needs to be done here - in silent mode. in regular
+                //          update, watchProp takes care of it.
+
             } else {
                 // Update is done via the prop assignment, which means that
                 // all dependent/watcher notifiers is handled as part of the

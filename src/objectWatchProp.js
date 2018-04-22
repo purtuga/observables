@@ -133,7 +133,7 @@ function setupPropState(obj, prop) {
             parent: obj[OBSERVABLE_IDENTIFIER],
             storeCallback: storeCallback,
             setupInterceptors: true,
-            deep: false
+            deep: false // FIXME: should this default what the setting is on the object state?
         };
         setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].props[prop].dependents, false);
         setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].props[prop].watchers, true);
@@ -147,6 +147,8 @@ function setupPropInterceptors(obj, prop) {
 
     if (!propOldDescriptor.get) {
         obj[OBSERVABLE_IDENTIFIER].props[prop].val = obj[prop];
+
+        // FIXME: if `deep` - we should walk val?
     }
 
     objectDefineProperty(obj, prop, {
@@ -158,11 +160,6 @@ function setupPropInterceptors(obj, prop) {
                     obj[OBSERVABLE_IDENTIFIER].props[prop].storeCallback,
                     obj[OBSERVABLE_IDENTIFIER].props[prop]
                 );
-
-
-                //     trackerCallback => {
-                //     obj[OBSERVABLE_IDENTIFIER].props[prop].storeCallback(trackerCallback);
-                // });
             }
 
             if (propOldDescriptor.get) {
@@ -203,8 +200,12 @@ function setupPropInterceptors(obj, prop) {
  * @param {Boolean} [walk=true]
  *  If `true` (default), the object's property values are walked and
  *  also make observable.
+ * @param {Boolean} [force=false]
+ *  if true, then even if object looks like it might have already been
+ *  converted to an observable, it will still be walked
+ *  (if `walk` is `true`)
  */
-export function objectMakeObservable(obj, walk = true) {
+export function objectMakeObservable(obj, walk = true, force = false) {
     if (!isPureObject(obj)) {
         return;
     }
@@ -215,7 +216,7 @@ export function objectMakeObservable(obj, walk = true) {
 
     // If object is marked as "deep", then no need to do anything
     // else - object has already been converted to observable.
-    if (obj[OBSERVABLE_IDENTIFIER].deep) {
+    if (!force && obj[OBSERVABLE_IDENTIFIER].deep) {
         return;
     }
     else if (walk) {
@@ -230,11 +231,17 @@ export function objectMakeObservable(obj, walk = true) {
         }
 
         // Do we need to walk this property's value?
-        if (walk && !obj[OBSERVABLE_IDENTIFIER].props[prop].deep) {
+        if (
+            walk &&
+            (
+                !obj[OBSERVABLE_IDENTIFIER].props[prop].deep ||
+                force
+            )
+        ) {
             obj[OBSERVABLE_IDENTIFIER].props[prop].deep = true;
 
             if (isPureObject(obj[prop])) {
-                objectMakeObservable(obj[prop]);
+                objectMakeObservable(obj[prop], walk, force);
             }
         }
     });
