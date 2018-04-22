@@ -182,6 +182,13 @@
         var __WEBPACK_IMPORTED_MODULE_1_common_micro_libs_src_jsutils_Set__ = __webpack_require__(3);
         /* harmony import */
         var __WEBPACK_IMPORTED_MODULE_2_common_micro_libs_src_jsutils_nextTick__ = __webpack_require__(7);
+        function _toConsumableArray(arr) {
+            if (Array.isArray(arr)) {
+                for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) arr2[i] = arr[i];
+                return arr2;
+            }
+            return Array.from(arr);
+        }
         //---------------------------------------------------------------------------
         var OBSERVABLE_IDENTIFIER = "___$observable$___";
         // FIXME: this should be a Symbol()
@@ -194,6 +201,8 @@
         var isPureObject = function(obj) {
             return obj && "[object Object]" === Object.prototype.toString.call(obj);
         };
+        var NOTIFY_QUEUE = new __WEBPACK_IMPORTED_MODULE_1_common_micro_libs_src_jsutils_Set__.a();
+        var isNotifyQueued = false;
         /**
  * A lightweight utility to Watch an object's properties and get notified when it changes.
  *
@@ -207,6 +216,12 @@
  *  `obj` is only made observable (internal structure created and all current enumerable'
  *  properties are made "watchable")
  *
+ *  __NOTE:__
+ *  The callback will receive a new non-enumerable property named `stopWatchingAll` of
+ *  type `Function` that can be used to remove the given callback from all places where
+ *  it is being used to watch a property.
+ *
+ *
  * @return {ObjectUnwatchProp}
  * Return a function to unwatch the property. Function also has a static property named
  * `destroy` that will do the same thing (ex. `unwatch.destroy()` is same as `unwatch()`)
@@ -214,10 +229,12 @@
  * @example
  *
  * const oo = {};
- * const unWatchName = objectWatchProp(oo, "name", () => console.log(`name changed: ${oo.name}`));
+ * const notifyNameChanged =() => console.log(`name changed: ${oo.name}`);
+ * const unWatchName = objectWatchProp(oo, "name", notifyNameChanged);
  *
  * oo.name = "paul"; // console outputs: name changed: paul
  * unWatchName(); // stop watching
+ * notifyNameChanged.stopWatchingAll(); // callback's `stopWatchingAll()` can also be called.
  *
  * @example
  *
@@ -274,10 +291,6 @@
             store.async = async;
             store.isQueued = false;
             store.notify = notify;
-            store.run = function() {
-                store.forEach(execCallback);
-                store.isQueued = false;
-            };
         }
         function setupPropState(obj, prop) {
             if (!obj[OBSERVABLE_IDENTIFIER].props[prop]) {
@@ -302,9 +315,7 @@
                 configurable: propOldDescriptor.configurable || false,
                 enumerable: propOldDescriptor.enumerable || false,
                 get: function() {
-                    TRACKERS.size && TRACKERS.forEach(function(trackerCallback) {
-                        obj[OBSERVABLE_IDENTIFIER].props[prop].storeCallback(trackerCallback);
-                    });
+                    TRACKERS.size && TRACKERS.forEach(obj[OBSERVABLE_IDENTIFIER].props[prop].storeCallback, obj[OBSERVABLE_IDENTIFIER].props[prop]);
                     if (propOldDescriptor.get) return propOldDescriptor.get.call(obj);
                     return obj[OBSERVABLE_IDENTIFIER].props[prop].val;
                 },
@@ -356,16 +367,29 @@
         }
         function notify() {
             // this: new Set(). Set instance could have two additional attributes: async ++ isQueued
-            if (!this.size || this.async && this.isQueued) return;
+            if (!this.size) return;
+            // If the watcher Set() is synchronous, then execute the callbacks now and exit
             if (!this.async) {
                 this.forEach(execCallback);
                 return;
             }
-            this.isQueued = true;
-            Object(__WEBPACK_IMPORTED_MODULE_2_common_micro_libs_src_jsutils_nextTick__.a)(this.run);
+            this.forEach(pushCallbacksToQueue);
+            if (isNotifyQueued) return;
+            isNotifyQueued = true;
+            Object(__WEBPACK_IMPORTED_MODULE_2_common_micro_libs_src_jsutils_nextTick__.a)(flushQueue);
+        }
+        function pushCallbacksToQueue(callback) {
+            NOTIFY_QUEUE.add(callback);
         }
         function execCallback(cb) {
             cb();
+        }
+        function flushQueue() {
+            var queuedCallbacks = [].concat(_toConsumableArray(NOTIFY_QUEUE));
+            NOTIFY_QUEUE.clear();
+            isNotifyQueued = false;
+            for (var x = 0, total = queuedCallbacks.length; x < total; x++) queuedCallbacks[x]();
+            queuedCallbacks.length = 0;
         }
         function storeCallback(callback) {
             // this === PropState
@@ -567,11 +591,11 @@
                 }
             },
             forEach: {
-                value: function(cb) {
+                value: function(cb, thisArg) {
                     var _this = this;
                     this._.forEach(function(item) {
                         return cb(item, item, _this);
-                    });
+                    }, thisArg);
                 }
             }
         }, __WEBPACK_IMPORTED_MODULE_2__runtime_aliases__.a, {
@@ -740,24 +764,24 @@
         function objectCreateComputedProp(obj, prop, setter) {
             var enumerable = !(arguments.length > 3 && void 0 !== arguments[3]) || arguments[3];
             var propValue = void 0;
+            var newValue = void 0;
             var needsInitialization = true;
             var allowSet = false;
             var needsNewValue = true;
             var dependencyTracker = function() {
-                // If this computed property has watchers or dependents,
-                // then update prop value.
-                // else:
-                // Just mark it as needing a new value, which means that the
-                // property value will not be re-generated until the next
-                // time the object prop is accessed.
-                obj[__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.a].props[prop].dependents.size || obj[__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.a].props[prop].watchers.size ? setPropValue() : needsNewValue = true;
+                if (needsNewValue) return;
+                needsNewValue = true;
+                setPropValue();
             };
             dependencyTracker.asDependent = true;
             dependencyTracker.forProp = prop;
             var setPropValue = function(silentSet) {
-                Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.c)(dependencyTracker);
                 try {
-                    if (silentSet) propValue = setter.call(obj); else {
+                    Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.c)(dependencyTracker);
+                    newValue = setter.call(obj, obj);
+                    Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.e)(dependencyTracker);
+                    // IMPORTANT: turn if off right after setter is run!
+                    if (silentSet) propValue = newValue; else {
                         // Update is done via the prop assignment, which means that
                         // all dependent/watcher notifiers is handled as part of the
                         // objectWatchProp() functionality.
@@ -765,20 +789,18 @@
                         // objects with other library that may also intercept getter/setters.
                         allowSet = true;
                         needsNewValue = false;
-                        var newValue = setter.call(obj, obj);
-                        Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.e)(dependencyTracker);
-                        // IMPORTANT: turn if off right after setter is run!
                         obj[prop] = newValue;
                     }
                 } catch (e) {
                     allowSet = false;
                     needsNewValue = false;
+                    newValue = void 0;
                     Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.e)(dependencyTracker);
                     throw e;
                 }
                 allowSet = false;
                 needsNewValue = false;
-                Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.e)(dependencyTracker);
+                newValue = void 0;
             };
             // Does property already exists? Delete it.
             if (prop in obj) {
@@ -802,6 +824,7 @@
                 }
             });
             Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.b)(obj, prop);
+            obj[__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.a].props[prop].isComputed = true;
         }
     } ]);
 });

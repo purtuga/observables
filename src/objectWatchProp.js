@@ -122,10 +122,6 @@ function setupCallbackStore (store, async = false) {
     store.async = async;
     store.isQueued = false;
     store.notify = notify;
-    store.run = function () {
-        store.forEach(execCallback);
-        store.isQueued = false;
-    };
 }
 
 function setupPropState(obj, prop) {
