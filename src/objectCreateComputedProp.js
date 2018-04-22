@@ -32,7 +32,16 @@ export function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
         }
 
         needsNewValue = true;
-        queueCallbackAndScheduleRun(setPropValue);
+
+        // If we have watchers on this computed prop, then queue the
+        // value generator function.
+        // else, just notify dependents.
+        if (obj[OBSERVABLE_IDENTIFIER].props[prop].watchers.size) {
+            queueCallbackAndScheduleRun(setPropValue);
+        }
+        else if (obj[OBSERVABLE_IDENTIFIER].props[prop].dependents.size) {
+            obj[OBSERVABLE_IDENTIFIER].props[prop].dependents.notify();
+        }
     };
 
     const setPropValue = silentSet => {
