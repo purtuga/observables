@@ -254,15 +254,23 @@ function notify() {
         return;
     }
 
-    // If the watcher Set() is synchronous, then execute the callbacks now and exit
+    // If the watcher Set() is synchronous, then execute the callbacks now
     if (!this.async) {
         this.forEach(execCallback);
-        return;
+
+    } else {
+        this.forEach(pushCallbacksToQueue);
     }
 
-    this.forEach(pushCallbacksToQueue);
+    queueCallbackAndScheduleRun();
+}
 
-    if (isNotifyQueued) {
+export function queueCallbackAndScheduleRun(cb) {
+    if (cb) {
+        pushCallbacksToQueue(cb);
+    }
+
+    if (isNotifyQueued || !NOTIFY_QUEUE.size) {
         return;
     }
 

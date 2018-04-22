@@ -3,7 +3,8 @@ import {
     OBSERVABLE_IDENTIFIER,
     objectWatchProp,
     setDependencyTracker,
-    unsetDependencyTracker
+    unsetDependencyTracker,
+    queueCallbackAndScheduleRun
 } from "./objectWatchProp";
 
 /**
@@ -31,12 +32,17 @@ export function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
         }
 
         needsNewValue = true;
-        setPropValue();
+        queueCallbackAndScheduleRun(setPropValue);
     };
-    dependencyTracker.asDependent = true;
-    dependencyTracker.forProp = prop;
 
     const setPropValue = silentSet => {
+        // if there is no longer a need to regenerate the value, exit.
+        // this can happen when other logic accesses the computed getter
+        // between scheduled updates.
+        if (!needsNewValue) {
+            return;
+        }
+
         try {
             setDependencyTracker(dependencyTracker);
             newValue = setter.call(obj, obj);
@@ -71,6 +77,9 @@ export function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
         needsNewValue = false;
         newValue = undefined;
     };
+
+    dependencyTracker.asDependent = true;
+    dependencyTracker.forProp = setPropValue.forProp = prop;
 
     // Does property already exists? Delete it.
     if (prop in obj) {
