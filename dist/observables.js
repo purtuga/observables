@@ -168,14 +168,15 @@
             return OBSERVABLE_IDENTIFIER;
         });
         /* harmony export (immutable) */
-        __webpack_exports__.b = objectWatchProp;
-        /* unused harmony export objectMakeObservable */
+        __webpack_exports__.c = objectWatchProp;
         /* harmony export (immutable) */
-        __webpack_exports__.c = setDependencyTracker;
+        __webpack_exports__.b = objectMakeObservable;
         /* harmony export (immutable) */
-        __webpack_exports__.e = unsetDependencyTracker;
+        __webpack_exports__.d = setDependencyTracker;
         /* harmony export (immutable) */
-        __webpack_exports__.d = stopTrackerNotification;
+        __webpack_exports__.f = unsetDependencyTracker;
+        /* harmony export (immutable) */
+        __webpack_exports__.e = stopTrackerNotification;
         /* harmony import */
         var __WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__ = __webpack_require__(0);
         /* harmony import */
@@ -490,19 +491,23 @@
         var __WEBPACK_IMPORTED_MODULE_0__objectWatchProp__ = __webpack_require__(1);
         /* harmony reexport (binding) */
         __webpack_require__.d(__webpack_exports__, "objectWatchProp", function() {
+            return __WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.c;
+        });
+        /* harmony reexport (binding) */
+        __webpack_require__.d(__webpack_exports__, "objectMakeObservable", function() {
             return __WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.b;
         });
         /* harmony reexport (binding) */
         __webpack_require__.d(__webpack_exports__, "setDependencyTracker", function() {
-            return __WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.c;
-        });
-        /* harmony reexport (binding) */
-        __webpack_require__.d(__webpack_exports__, "stopTrackerNotification", function() {
             return __WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.d;
         });
         /* harmony reexport (binding) */
-        __webpack_require__.d(__webpack_exports__, "unsetDependencyTracker", function() {
+        __webpack_require__.d(__webpack_exports__, "stopTrackerNotification", function() {
             return __WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.e;
+        });
+        /* harmony reexport (binding) */
+        __webpack_require__.d(__webpack_exports__, "unsetDependencyTracker", function() {
+            return __WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.f;
         });
         /* harmony import */
         var __WEBPACK_IMPORTED_MODULE_1__objectCreateComputedProp__ = __webpack_require__(8);
@@ -777,9 +782,9 @@
             dependencyTracker.forProp = prop;
             var setPropValue = function(silentSet) {
                 try {
-                    Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.c)(dependencyTracker);
+                    Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.d)(dependencyTracker);
                     newValue = setter.call(obj, obj);
-                    Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.e)(dependencyTracker);
+                    Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.f)(dependencyTracker);
                     // IMPORTANT: turn if off right after setter is run!
                     if (silentSet) propValue = newValue; else {
                         // Update is done via the prop assignment, which means that
@@ -795,7 +800,7 @@
                     allowSet = false;
                     needsNewValue = false;
                     newValue = void 0;
-                    Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.e)(dependencyTracker);
+                    Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.f)(dependencyTracker);
                     throw e;
                 }
                 allowSet = false;
@@ -823,7 +828,7 @@
                     return propValue;
                 }
             });
-            Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.b)(obj, prop);
+            Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.c)(obj, prop);
             obj[__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.a].props[prop].isComputed = true;
         }
     } ]);
