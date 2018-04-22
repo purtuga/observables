@@ -172,11 +172,13 @@
         /* harmony export (immutable) */
         __webpack_exports__.b = objectMakeObservable;
         /* harmony export (immutable) */
-        __webpack_exports__.d = setDependencyTracker;
+        __webpack_exports__.d = queueCallbackAndScheduleRun;
         /* harmony export (immutable) */
-        __webpack_exports__.f = unsetDependencyTracker;
+        __webpack_exports__.e = setDependencyTracker;
         /* harmony export (immutable) */
-        __webpack_exports__.e = stopTrackerNotification;
+        __webpack_exports__.g = unsetDependencyTracker;
+        /* harmony export (immutable) */
+        __webpack_exports__.f = stopTrackerNotification;
         /* harmony import */
         var __WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__ = __webpack_require__(0);
         /* harmony import */
@@ -343,14 +345,19 @@
  * @param {Boolean} [walk=true]
  *  If `true` (default), the object's property values are walked and
  *  also make observable.
+ * @param {Boolean} [force=false]
+ *  if true, then even if object looks like it might have already been
+ *  converted to an observable, it will still be walked
+ *  (if `walk` is `true`)
  */
         function objectMakeObservable(obj) {
             var walk = !(arguments.length > 1 && void 0 !== arguments[1]) || arguments[1];
+            var force = arguments.length > 2 && void 0 !== arguments[2] && arguments[2];
             if (!isPureObject(obj)) return;
             obj[OBSERVABLE_IDENTIFIER] || setupObjState(obj);
             // If object is marked as "deep", then no need to do anything
             // else - object has already been converted to observable.
-            if (obj[OBSERVABLE_IDENTIFIER].deep) return;
+            if (!force && obj[OBSERVABLE_IDENTIFIER].deep) return;
             walk && (obj[OBSERVABLE_IDENTIFIER].deep = true);
             // make ALL props observable
             Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.e)(obj).forEach(function(prop) {
@@ -360,22 +367,22 @@
                     setupPropInterceptors(obj, prop);
                 }
                 // Do we need to walk this property's value?
-                if (walk && !obj[OBSERVABLE_IDENTIFIER].props[prop].deep) {
+                if (walk && (!obj[OBSERVABLE_IDENTIFIER].props[prop].deep || force)) {
                     obj[OBSERVABLE_IDENTIFIER].props[prop].deep = true;
-                    isPureObject(obj[prop]) && objectMakeObservable(obj[prop]);
+                    isPureObject(obj[prop]) && objectMakeObservable(obj[prop], walk, force);
                 }
             });
         }
         function notify() {
             // this: new Set(). Set instance could have two additional attributes: async ++ isQueued
             if (!this.size) return;
-            // If the watcher Set() is synchronous, then execute the callbacks now and exit
-            if (!this.async) {
-                this.forEach(execCallback);
-                return;
-            }
-            this.forEach(pushCallbacksToQueue);
-            if (isNotifyQueued) return;
+            // If the watcher Set() is synchronous, then execute the callbacks now
+            this.async ? this.forEach(pushCallbacksToQueue) : this.forEach(execCallback);
+            queueCallbackAndScheduleRun();
+        }
+        function queueCallbackAndScheduleRun(cb) {
+            cb && pushCallbacksToQueue(cb);
+            if (isNotifyQueued || !NOTIFY_QUEUE.size) return;
             isNotifyQueued = true;
             Object(__WEBPACK_IMPORTED_MODULE_2_common_micro_libs_src_jsutils_nextTick__.a)(flushQueue);
         }
@@ -405,7 +412,8 @@
         function destroyWatcher(callback, propSetup) {
             // this == obj
             if (callback) {
-                propSetup.dependents.delete(callback);
+                // Object state does not have dependents
+                propSetup.dependents && propSetup.dependents.delete(callback);
                 propSetup.watchers.delete(callback);
                 unsetCallbackAsWatcherOf(callback, propSetup.dependents);
                 unsetCallbackAsWatcherOf(callback, propSetup.watchers);
@@ -499,15 +507,15 @@
         });
         /* harmony reexport (binding) */
         __webpack_require__.d(__webpack_exports__, "setDependencyTracker", function() {
-            return __WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.d;
-        });
-        /* harmony reexport (binding) */
-        __webpack_require__.d(__webpack_exports__, "stopTrackerNotification", function() {
             return __WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.e;
         });
         /* harmony reexport (binding) */
-        __webpack_require__.d(__webpack_exports__, "unsetDependencyTracker", function() {
+        __webpack_require__.d(__webpack_exports__, "stopTrackerNotification", function() {
             return __WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.f;
+        });
+        /* harmony reexport (binding) */
+        __webpack_require__.d(__webpack_exports__, "unsetDependencyTracker", function() {
+            return __WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.g;
         });
         /* harmony import */
         var __WEBPACK_IMPORTED_MODULE_1__objectCreateComputedProp__ = __webpack_require__(8);
@@ -776,15 +784,17 @@
             var dependencyTracker = function() {
                 if (needsNewValue) return;
                 needsNewValue = true;
-                setPropValue();
+                Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.d)(setPropValue);
             };
-            dependencyTracker.asDependent = true;
-            dependencyTracker.forProp = prop;
             var setPropValue = function(silentSet) {
+                // if there is no longer a need to regenerate the value, exit.
+                // this can happen when other logic accesses the computed getter
+                // between scheduled updates.
+                if (!needsNewValue) return;
                 try {
-                    Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.d)(dependencyTracker);
+                    Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.e)(dependencyTracker);
                     newValue = setter.call(obj, obj);
-                    Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.f)(dependencyTracker);
+                    Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.g)(dependencyTracker);
                     // IMPORTANT: turn if off right after setter is run!
                     if (silentSet) propValue = newValue; else {
                         // Update is done via the prop assignment, which means that
@@ -800,13 +810,15 @@
                     allowSet = false;
                     needsNewValue = false;
                     newValue = void 0;
-                    Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.f)(dependencyTracker);
+                    Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.g)(dependencyTracker);
                     throw e;
                 }
                 allowSet = false;
                 needsNewValue = false;
                 newValue = void 0;
             };
+            dependencyTracker.asDependent = true;
+            dependencyTracker.forProp = setPropValue.forProp = prop;
             // Does property already exists? Delete it.
             if (prop in obj) {
                 delete obj[prop];
