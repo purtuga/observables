@@ -5,8 +5,8 @@ import test from "tape"
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms || 2));
 const getChangeNotify = () => {function ch(){ch.count++};ch.count = 0;return ch;};
 
-test("objectWatchProp", t => {
-    t.plan(9);
+test("objectWatchProp()", t => {
+    t.plan(10);
     t.ok("function" === typeof objectWatchProp, "exposes a function");
 
     let obj = { name: "paul", country: "usa" };
@@ -21,14 +21,14 @@ test("objectWatchProp", t => {
     obj.name = "paul 2";
     delay()
         .then(() => {
-            t.equal(changeNotify.count, 1, "Change notify was called once");
+            t.equal(changeNotify.count, 1, "watcher was called once");
 
             unWatch();
             obj.name = "paul";
             return delay();
         })
         .then(() => {
-            t.equal(changeNotify.count, 1, "Change notify was not invoked");
+            t.equal(changeNotify.count, 1, "watcher was not invoked after unwatch");
 
             obj = { name: "paul", country: "usa" };
             changeNotify = getChangeNotify();
@@ -37,20 +37,27 @@ test("objectWatchProp", t => {
             return delay();
         })
         .then(() => {
-            t.equal(changeNotify.count, 1, "object change notify was called once");
+            t.equal(changeNotify.count, 1, "object watcher was called once");
 
             obj.name = "paul 1";
             return delay();
         })
         .then(() => {
-            t.equal(changeNotify.count, 2, "object change notify was called again (2)");
+            t.equal(changeNotify.count, 2, "object watcher was called again (2)");
 
             obj.name = "paul";
             obj.country = "usa";
             return delay();
         })
         .then(() => {
-            t.equal(changeNotify.count, 3, "object change notify was called again (3)");
+            t.equal(changeNotify.count, 3, "object watcher was called again (3)");
+
+            unWatch.destroy();
+            obj.name = "paul 2";
+            return delay();
+        })
+        .then(() => {
+            t.equal(changeNotify.count, 3, "object watcher was NOT invoked after unwatch.destroy()");
         })
         .catch(console.error);
 });

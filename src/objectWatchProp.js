@@ -302,7 +302,10 @@ function storeCallback(callback) {
 function destroyWatcher(callback, propSetup) {
     // this == obj
     if (callback) {
-        propSetup.dependents.delete(callback);
+        // Object state does not have dependents
+        if (propSetup.dependents) {
+            propSetup.dependents.delete(callback);
+        }
         propSetup.watchers.delete(callback);
         unsetCallbackAsWatcherOf(callback, propSetup.dependents);
         unsetCallbackAsWatcherOf(callback, propSetup.watchers);
