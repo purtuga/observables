@@ -8,6 +8,8 @@ const DEFAULT_PROP_DEFINITION = { configurable: true, enumerable: true };
 const TRACKERS = new Set();
 const WATCHER_IDENTIFIER = "___$watching$___";
 const isPureObject = obj => obj && Object.prototype.toString.call(obj) === "[object Object]";
+const NOTIFY_QUEUE = new Set();
+let isNotifyQueued = false;
 
 /**
  * A lightweight utility to Watch an object's properties and get notified when it changes.
@@ -22,6 +24,12 @@ const isPureObject = obj => obj && Object.prototype.toString.call(obj) === "[obj
  *  `obj` is only made observable (internal structure created and all current enumerable'
  *  properties are made "watchable")
  *
+ *  __NOTE:__
+ *  The callback will receive a new non-enumerable property named `stopWatchingAll` of
+ *  type `Function` that can be used to remove the given callback from all places where
+ *  it is being used to watch a property.
+ *
+ *
  * @return {ObjectUnwatchProp}
  * Return a function to unwatch the property. Function also has a static property named
  * `destroy` that will do the same thing (ex. `unwatch.destroy()` is same as `unwatch()`)
@@ -29,10 +37,12 @@ const isPureObject = obj => obj && Object.prototype.toString.call(obj) === "[obj
  * @example
  *
  * const oo = {};
- * const unWatchName = objectWatchProp(oo, "name", () => console.log(`name changed: ${oo.name}`));
+ * const notifyNameChanged =() => console.log(`name changed: ${oo.name}`);
+ * const unWatchName = objectWatchProp(oo, "name", notifyNameChanged);
  *
  * oo.name = "paul"; // console outputs: name changed: paul
  * unWatchName(); // stop watching
+ * notifyNameChanged.stopWatchingAll(); // callback's `stopWatchingAll()` can also be called.
  *
  * @example
  *
@@ -148,9 +158,15 @@ function setupPropInterceptors(obj, prop) {
         enumerable: propOldDescriptor.enumerable || false,
         get() {
             if (TRACKERS.size) {
-                TRACKERS.forEach(trackerCallback => {
-                    obj[OBSERVABLE_IDENTIFIER].props[prop].storeCallback(trackerCallback);
-                });
+                TRACKERS.forEach(
+                    obj[OBSERVABLE_IDENTIFIER].props[prop].storeCallback,
+                    obj[OBSERVABLE_IDENTIFIER].props[prop]
+                );
+
+
+                //     trackerCallback => {
+                //     obj[OBSERVABLE_IDENTIFIER].props[prop].storeCallback(trackerCallback);
+                // });
             }
 
             if (propOldDescriptor.get) {
@@ -231,21 +247,42 @@ export function objectMakeObservable(obj, walk = true) {
 function notify() {
     // this: new Set(). Set instance could have two additional attributes: async ++ isQueued
 
-    if (!this.size || (this.async && this.isQueued)) {
+    if (!this.size) {
         return;
     }
 
+    // If the watcher Set() is synchronous, then execute the callbacks now and exit
     if (!this.async) {
         this.forEach(execCallback);
         return;
     }
 
-    this.isQueued = true;
-    nextTick(this.run);
+    this.forEach(pushCallbacksToQueue);
+
+    if (isNotifyQueued) {
+        return;
+    }
+
+    isNotifyQueued = true;
+    nextTick(flushQueue);
+}
+
+function pushCallbacksToQueue(callback) {
+    NOTIFY_QUEUE.add(callback);
 }
 
 function execCallback(cb) {
     cb();
+}
+
+function flushQueue() {
+    const queuedCallbacks = [...NOTIFY_QUEUE];
+    NOTIFY_QUEUE.clear();
+    isNotifyQueued = false;
+    for (let x=0, total=queuedCallbacks.length; x<total; x++) {
+        queuedCallbacks[x]();
+    }
+    queuedCallbacks.length = 0;
 }
 
 function storeCallback(callback) {

@@ -20,35 +20,30 @@ import {
  */
 export function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
     let propValue;
+    let newValue;
     let needsInitialization = true;
     let allowSet = false;
     let needsNewValue = true;
 
     const dependencyTracker = () => {
-        // If this computed property has watchers or dependents,
-        // then update prop value.
-        // else:
-        // Just mark it as needing a new value, which means that the
-        // property value will not be re-generated until the next
-        // time the object prop is accessed.
-        if (
-            obj[OBSERVABLE_IDENTIFIER].props[prop].dependents.size ||
-            obj[OBSERVABLE_IDENTIFIER].props[prop].watchers.size
-        ) {
-            setPropValue();
+        if (needsNewValue) {
+            return;
         }
-        else {
-            needsNewValue = true;
-        }
+
+        needsNewValue = true;
+        setPropValue();
     };
     dependencyTracker.asDependent = true;
     dependencyTracker.forProp = prop;
 
     const setPropValue = silentSet => {
-        setDependencyTracker(dependencyTracker);
         try {
+            setDependencyTracker(dependencyTracker);
+            newValue = setter.call(obj, obj);
+            unsetDependencyTracker(dependencyTracker); // IMPORTANT: turn if off right after setter is run!
+
             if (silentSet) {
-                propValue = setter.call(obj);
+                propValue = newValue;
             } else {
                 // Update is done via the prop assignment, which means that
                 // all dependent/watcher notifiers is handled as part of the
@@ -57,19 +52,19 @@ export function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
                 // objects with other library that may also intercept getter/setters.
                 allowSet = true;
                 needsNewValue = false;
-                const newValue = setter.call(obj, obj);
-                unsetDependencyTracker(dependencyTracker); // IMPORTANT: turn if off right after setter is run!
                 obj[prop] = newValue;
             }
         } catch (e) {
             allowSet = false;
             needsNewValue = false;
+            newValue = undefined;
             unsetDependencyTracker(dependencyTracker);
             throw e;
         }
+
         allowSet = false;
         needsNewValue = false;
-        unsetDependencyTracker(dependencyTracker);
+        newValue = undefined;
     };
 
     // Does property already exists? Delete it.
@@ -105,6 +100,7 @@ export function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
     });
 
     objectWatchProp(obj, prop);
+    obj[OBSERVABLE_IDENTIFIER].props[prop].isComputed = true;
 }
 
 export default objectCreateComputedProp;
