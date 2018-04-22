@@ -123,7 +123,6 @@ export function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
     });
 
     objectWatchProp(obj, prop);
-    obj[OBSERVABLE_IDENTIFIER].props[prop].isComputed = true;
 }
 
 export default objectCreateComputedProp;

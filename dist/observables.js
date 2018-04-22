@@ -784,7 +784,10 @@
             var dependencyTracker = function() {
                 if (needsNewValue) return;
                 needsNewValue = true;
-                Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.d)(setPropValue);
+                // If we have watchers on this computed prop, then queue the
+                // value generator function.
+                // else, just notify dependents.
+                obj[__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.a].props[prop].watchers.size ? Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.d)(setPropValue) : obj[__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.a].props[prop].dependents.size && obj[__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.a].props[prop].dependents.notify();
             };
             var setPropValue = function(silentSet) {
                 // if there is no longer a need to regenerate the value, exit.
@@ -841,7 +844,6 @@
                 }
             });
             Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.c)(obj, prop);
-            obj[__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.a].props[prop].isComputed = true;
         }
     } ]);
 });

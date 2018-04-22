@@ -62,3 +62,35 @@ test("objectWatchProp()", t => {
         .catch(console.error);
 });
 
+test("objectWatchProp: watcher.stopWatchingAll()", t => {
+    let obj = { name: "paul", country: "usa" };
+    let changeNotify = getChangeNotify();
+    objectWatchProp(obj, "name", changeNotify);
+    objectWatchProp(obj, "country", changeNotify);
+    obj.name = "paul 1";
+    delay()
+        .then(() => {
+            t.equal(changeNotify.count, 1, "watcher was called for name");
+
+            obj.country = "usa 1";
+            return delay();
+        })
+        .then(() => {
+            t.equal(changeNotify.count, 2, "watcher was called for country");
+
+            changeNotify.stopWatchingAll();
+            obj.name = "paul";
+            return delay();
+        })
+        .then(() => {
+            t.equal(changeNotify.count, 2, "watcher NOT called for name after stopWatchingAll()");
+
+            obj.country = "usa";
+            return delay()
+        })
+        .then(() => {
+            t.equal(changeNotify.count, 2, "watcher NOT called for country after stopWatchingAll()");
+        })
+        .then(() => t.end()).catch(console.error);
+});
+
