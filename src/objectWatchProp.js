@@ -103,7 +103,7 @@ export function objectWatchProp(obj, prop, callback) {
     return unWatch;
 }
 
-function setupObjState(obj) {
+export function setupObjState(obj) {
     if (!obj[OBSERVABLE_IDENTIFIER]) {
         objectDefineProperty(obj, OBSERVABLE_IDENTIFIER, {
             configurable: true,

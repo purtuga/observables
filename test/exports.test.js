@@ -2,9 +2,9 @@ import * as Observables from "../src"
 import test from "tape"
 
 test("Observables public exports", t => {
-    t.plan(7);
+    t.plan(8);
 
-    t.equal(Object.keys(Observables).length, 6, "has expected number of exports");
+    t.equal(Object.keys(Observables).length, 7, "has expected number of exports");
 
     [
         "objectWatchProp",
@@ -12,7 +12,8 @@ test("Observables public exports", t => {
         "setDependencyTracker",
         "stopTrackerNotification",
         "unsetDependencyTracker",
-        "objectCreateComputedProp"
+        "objectCreateComputedProp",
+        "arrayWatch"
     ].forEach(methodName => t.ok(!!Observables[methodName], `has ${methodName}`));
 });
 

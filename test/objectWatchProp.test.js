@@ -94,3 +94,5 @@ test("objectWatchProp: watcher.stopWatchingAll()", t => {
         .then(() => t.end()).catch(console.error);
 });
 
+
+// TODO: Ensure that additions to object (like new keys) trigger events
