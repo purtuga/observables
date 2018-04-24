@@ -82,8 +82,7 @@ export function objectWatchProp(obj, prop, callback) {
         objectMakeObservable(obj, false);
 
         if (callback) {
-            // FIXME: should use `storeCallback` here?
-            obj[OBSERVABLE_IDENTIFIER].watchers.add(callback);
+            obj[OBSERVABLE_IDENTIFIER].storeCallback(callback);
         }
     }
 
@@ -111,7 +110,8 @@ export function setupObjState(obj) {
             deep: false,
             value: {
                 props: {},
-                watchers: new Set()
+                watchers: new Set(),
+                storeCallback: storeCallback
             }
         });
         setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].watchers, true);
@@ -190,7 +190,13 @@ function setupPropInterceptors(obj, prop) {
             return newVal;
         }
     });
+
     obj[OBSERVABLE_IDENTIFIER].props[prop].setupInterceptors = false;
+
+    // Notify object watchers that a new prop was added
+    if (propOldDescriptor === DEFAULT_PROP_DEFINITION) {
+        obj[OBSERVABLE_IDENTIFIER].watchers.notify();
+    }
 }
 
 /**
@@ -298,7 +304,7 @@ function flushQueue() {
 
 function storeCallback(callback) {
     // this === PropState
-    if (callback.asDependent) {
+    if (callback.asDependent && this.dependents) {
         setCallbackAsWatcherOf(callback, this.dependents);
         this.dependents.add(callback);
     } else {
@@ -313,9 +319,9 @@ function destroyWatcher(callback, propSetup) {
         // Object state does not have dependents
         if (propSetup.dependents) {
             propSetup.dependents.delete(callback);
+            unsetCallbackAsWatcherOf(callback, propSetup.dependents);
         }
         propSetup.watchers.delete(callback);
-        unsetCallbackAsWatcherOf(callback, propSetup.dependents);
         unsetCallbackAsWatcherOf(callback, propSetup.watchers);
     }
 }

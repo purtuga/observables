@@ -5,15 +5,15 @@ import test from "tape"
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms || 2));
 const getChangeNotify = () => {function ch(){ch.count++};ch.count = 0;return ch;};
 
-test("objectWatchProp()", t => {
-    t.plan(10);
+test("objectWatchProp: prop watchers", t => {
+    t.plan(13);
     t.ok("function" === typeof objectWatchProp, "exposes a function");
 
     let obj = { name: "paul", country: "usa" };
     let changeNotify = getChangeNotify();
     let unWatch = objectWatchProp(obj, "name", changeNotify);
 
-    t.ok("function" === typeof unWatch, "objectWatchProp() returns function");
+    t.ok("function" === typeof unWatch, "objectWatchProp() returns unwatch() function");
     t.ok("function" === typeof unWatch.destroy, "unwatch() has property 'destroy`");
     t.ok("stopWatchingAll" in changeNotify, "change notify callback has 'stopWatchingAll'");
 
@@ -33,6 +33,11 @@ test("objectWatchProp()", t => {
             obj = { name: "paul", country: "usa" };
             changeNotify = getChangeNotify();
             unWatch = objectWatchProp(obj, null, changeNotify);
+
+            t.ok("function" === typeof unWatch, "objectWatchProp() returns unwatch() function");
+            t.ok("function" === typeof unWatch.destroy, "unwatch() has property 'destroy`");
+            t.ok("stopWatchingAll" in changeNotify, "change notify callback has 'stopWatchingAll'");
+
             obj.country = "portugal";
             return delay();
         })
@@ -94,5 +99,22 @@ test("objectWatchProp: watcher.stopWatchingAll()", t => {
         .then(() => t.end()).catch(console.error);
 });
 
+test("objectWatchProp: object watcher", t => {
+    // TODO: Ensure that additions to object (like new keys) trigger events on the object watchers
+    let obj = { name: "paul" };
+    let changeNotify = getChangeNotify();
+    objectWatchProp(obj, null, changeNotify);
+    objectWatchProp(obj, "name");
 
-// TODO: Ensure that additions to object (like new keys) trigger events
+    delay()
+        .then(() => {
+            t.equal(changeNotify.count, 0, "watcher not called for existing props");
+
+            objectWatchProp(obj, "country");
+            return delay();
+        })
+        .then(() => {
+            t.equal(changeNotify.count, 1, "watcher called when new prop was observed");
+        })
+        .then(() => t.end()).catch(console.error);
+});
