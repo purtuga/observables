@@ -29,7 +29,7 @@ export function arrayWatch(arr, callback) {
         makeArrayWatchable(arr);
     }
     if (callback) {
-        arr[OBSERVABLE_IDENTIFIER].watchers.add(callback);
+        arr[OBSERVABLE_IDENTIFIER].storeCallback(callback);
     }
 
     const unWatch = () => arr[OBSERVABLE_IDENTIFIER].watchers.delete(callback);

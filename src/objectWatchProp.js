@@ -274,7 +274,7 @@ function notify() {
 export function queueCallbackAndScheduleRun(cb) {
     if (cb) {
         pushCallbacksToQueue(cb);
-    }
+}
 
     if (isNotifyQueued || !NOTIFY_QUEUE.size) {
         return;
