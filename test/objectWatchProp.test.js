@@ -100,7 +100,6 @@ test("objectWatchProp: watcher.stopWatchingAll()", t => {
 });
 
 test("objectWatchProp: object watcher", t => {
-    // TODO: Ensure that additions to object (like new keys) trigger events on the object watchers
     let obj = { name: "paul" };
     let changeNotify = getChangeNotify();
     objectWatchProp(obj, null, changeNotify);

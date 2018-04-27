@@ -133,7 +133,7 @@ function setupPropState(obj, prop) {
             parent: obj[OBSERVABLE_IDENTIFIER],
             storeCallback: storeCallback,
             setupInterceptors: true,
-            deep: false // FIXME: should this default what the setting is on the object state?
+            deep: obj[OBSERVABLE_IDENTIFIER].deep
         };
         setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].props[prop].dependents, false);
         setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].props[prop].watchers, true);
@@ -148,7 +148,10 @@ function setupPropInterceptors(obj, prop) {
     if (!propOldDescriptor.get) {
         obj[OBSERVABLE_IDENTIFIER].props[prop].val = obj[prop];
 
-        // FIXME: if `deep` - we should walk val?
+        // If prop is marked as `deep` then walk the value and convert it to observables
+        if (obj[OBSERVABLE_IDENTIFIER].props[prop].deep) {
+            objectMakeObservable(obj[OBSERVABLE_IDENTIFIER].props[prop].val);
+        }
     }
 
     objectDefineProperty(obj, prop, {
@@ -177,7 +180,7 @@ function setupPropInterceptors(obj, prop) {
 
             // If this `deep` is true and the new value is an object,
             // then ensure its observable
-            if (obj[OBSERVABLE_IDENTIFIER].props[prop].deep  && isPureObject(newVal)) {
+            if (obj[OBSERVABLE_IDENTIFIER].props[prop].deep) {
                 objectMakeObservable(newVal);
             }
 
@@ -220,8 +223,9 @@ export function objectMakeObservable(obj, walk = true, force = false) {
         setupObjState(obj);
     }
 
-    // If object is marked as "deep", then no need to do anything
-    // else - object has already been converted to observable.
+    // If object is marked as "deep" and we are not forcing the walk,
+    // then no need to do anything. Otherwise, mark this object as
+    // being `deep` and keep going
     if (!force && obj[OBSERVABLE_IDENTIFIER].deep) {
         return;
     }
@@ -230,7 +234,7 @@ export function objectMakeObservable(obj, walk = true, force = false) {
     }
 
     // make ALL props observable
-    objectKeys(obj).forEach(prop => {   // TODO: can this function be made static?
+    objectKeys(obj).forEach(prop => {
         if (!obj[OBSERVABLE_IDENTIFIER].props[prop]) {
             setupPropState(obj, prop);
             setupPropInterceptors(obj, prop);
@@ -274,7 +278,7 @@ function notify() {
 export function queueCallbackAndScheduleRun(cb) {
     if (cb) {
         pushCallbacksToQueue(cb);
-}
+    }
 
     if (isNotifyQueued || !NOTIFY_QUEUE.size) {
         return;
