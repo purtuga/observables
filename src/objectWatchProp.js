@@ -476,9 +476,27 @@ export function makeArrayWatchable(arr) {
                 }
             });
         });
+
+        // VALUE ADD: include a `size` read only attribute
+        objectDefineProperty(arrProtoInterceptor, "size", {
+            configurable: true,
+            get() {
+                if (TRACKERS.size) {
+                    TRACKERS.forEach(
+                        this[OBSERVABLE_IDENTIFIER].storeCallback,
+                        this[OBSERVABLE_IDENTIFIER]
+                    );
+                }
+                return this.length;
+            }
+        });
+
+        // Add flag to new array interceptor prototype indicating its watchable
         objectDefineProperty(arrProtoInterceptor, HAS_ARRAY_WATCHABLE_PROTO, {
             value: true
         });
+
+        // Store the new interceptor prototype on the real prototype
         objectDefineProperty(arrCurrentProto, ARRAY_WATCHABLE_PROTO, {
             configurable: true,
             writable: true,

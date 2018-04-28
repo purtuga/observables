@@ -43,6 +43,9 @@ export function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
         else if (obj[OBSERVABLE_IDENTIFIER].props[prop].dependents.size) {
             obj[OBSERVABLE_IDENTIFIER].props[prop].dependents.notify();
         }
+
+        // FIXME: create option to ALWAYS trigger setter on change?
+        //          So that other system (like VueJS) can get notified of changes?
     };
 
     const setPropValue = silentSet => {
