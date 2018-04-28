@@ -8,7 +8,7 @@ test("Observables public exports", t => {
 
     [
         "objectWatchProp",
-        "objectMakeObservable",
+        "makeObservable",
         "setDependencyTracker",
         "stopTrackerNotification",
         "unsetDependencyTracker",

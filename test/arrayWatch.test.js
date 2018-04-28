@@ -6,11 +6,12 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms || 2));
 const getChangeNotify = () => {function ch(){ch.count++};ch.count = 0;return ch;};
 
 test("arrayWatch: Mutating methods call watchers", t => {
-    t.plan(11);
+    t.plan(12);
     let arr = [1, 2, 3, 4, 5, 6, 7, 8, 9];
     let changeNotify = getChangeNotify();
     let unWatch = arrayWatch(arr, changeNotify);
 
+    t.ok(Array.isArray(arr), "isArray after observing");
     t.ok("function" === typeof arrayWatch, "exposes a function");
     t.ok("function" === typeof unWatch, "objectWatchProp() returns unwatch() function");
     t.ok("function" === typeof unWatch.destroy, "unwatch() has property 'destroy`");

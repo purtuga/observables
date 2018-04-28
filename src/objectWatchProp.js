@@ -1,4 +1,4 @@
-import {objectDefineProperty, objectKeys} from "common-micro-libs/src/jsutils/runtime-aliases";
+import {objectDefineProperty, objectKeys, isArray} from "common-micro-libs/src/jsutils/runtime-aliases";
 import Set from "common-micro-libs/src/jsutils/Set"
 import nextTick from "common-micro-libs/src/jsutils/nextTick"
 
@@ -7,6 +7,17 @@ export const OBSERVABLE_IDENTIFIER = "___$observable$___"; // FIXME: this should
 const DEFAULT_PROP_DEFINITION = { configurable: true, enumerable: true };
 const TRACKERS = new Set();
 const WATCHER_IDENTIFIER = "___$watching$___";
+const ARRAY_WATCHABLE_PROTO = "__$watchable$__";
+const HAS_ARRAY_WATCHABLE_PROTO = `__$is${ARRAY_WATCHABLE_PROTO}`;
+const mutatingMethods = [
+    "pop",
+    "push",
+    "shift",
+    "splice",
+    "unshift",
+    "sort",
+    "reverse"
+];
 const isPureObject = obj => obj && Object.prototype.toString.call(obj) === "[object Object]";
 const NOTIFY_QUEUE = new Set();
 let isNotifyQueued = false;
@@ -79,7 +90,7 @@ export function objectWatchProp(obj, prop, callback) {
         obj[OBSERVABLE_IDENTIFIER].props[prop].storeCallback(callback);
     }
     else if (!prop) {
-        objectMakeObservable(obj, false);
+        makeObservable(obj, false);
 
         if (callback) {
             obj[OBSERVABLE_IDENTIFIER].storeCallback(callback);
@@ -150,7 +161,7 @@ function setupPropInterceptors(obj, prop) {
 
         // If prop is marked as `deep` then walk the value and convert it to observables
         if (obj[OBSERVABLE_IDENTIFIER].props[prop].deep) {
-            objectMakeObservable(obj[OBSERVABLE_IDENTIFIER].props[prop].val);
+            makeObservable(obj[OBSERVABLE_IDENTIFIER].props[prop].val);
         }
     }
 
@@ -181,7 +192,7 @@ function setupPropInterceptors(obj, prop) {
             // If this `deep` is true and the new value is an object,
             // then ensure its observable
             if (obj[OBSERVABLE_IDENTIFIER].props[prop].deep) {
-                objectMakeObservable(newVal);
+                makeObservable(newVal);
             }
 
             if (newVal !== priorVal) {
@@ -205,7 +216,7 @@ function setupPropInterceptors(obj, prop) {
 /**
  * Makes an object (deep) observable.
  *
- * @param {Object} obj
+ * @param {Object|Array} obj
  * @param {Boolean} [walk=true]
  *  If `true` (default), the object's property values are walked and
  *  also make observable.
@@ -214,13 +225,20 @@ function setupPropInterceptors(obj, prop) {
  *  converted to an observable, it will still be walked
  *  (if `walk` is `true`)
  */
-export function objectMakeObservable(obj, walk = true, force = false) {
-    if (!isPureObject(obj)) {
+export function makeObservable(obj, walk = true, force = false) {
+    if (!isPureObject(obj) && !isArray(obj)) {
         return;
     }
 
     if (!obj[OBSERVABLE_IDENTIFIER]) {
-        setupObjState(obj);
+        // OBJECT
+        if (isPureObject(obj)) {
+            setupObjState(obj, force);
+        }
+        // ARRAY
+        else if (isArray(obj)) {
+            makeArrayWatchable(obj, force);
+        }
     }
 
     // If object is marked as "deep" and we are not forcing the walk,
@@ -233,28 +251,49 @@ export function objectMakeObservable(obj, walk = true, force = false) {
         obj[OBSERVABLE_IDENTIFIER].deep = true;
     }
 
+    if (isArray(obj)) {
+        walkArray(obj);
+    }
+    else {
+        walkObject(obj);
+    }
+}
+
+
+function walkArray(arr, force) {
+    for (let i=0, t=arr.length; i<t; i++) {
+        makeObservable(arr[i], true, force);
+    }
+}
+
+function walkObject(obj, force) {
     // make ALL props observable
-    objectKeys(obj).forEach(prop => {
-        if (!obj[OBSERVABLE_IDENTIFIER].props[prop]) {
-            setupPropState(obj, prop);
-            setupPropInterceptors(obj, prop);
+    const keys = objectKeys(obj);
+
+    for (let i=0, t=keys.length; i<t; i++) {
+        if (!obj[OBSERVABLE_IDENTIFIER].props[keys[i]]) {
+            setupPropState(obj, keys[i]);
+            setupPropInterceptors(obj, keys[i]);
+
+            // PropState `deep` flag matches the object's `deep` flag. If that is currently
+            // true, then `force` the walking of the prop value
+            if (obj[OBSERVABLE_IDENTIFIER].props[keys[i]].deep) {
+                force = true;
+            }
         }
 
         // Do we need to walk this property's value?
         if (
-            walk &&
-            (
-                !obj[OBSERVABLE_IDENTIFIER].props[prop].deep ||
-                force
-            )
+            !obj[OBSERVABLE_IDENTIFIER].props[keys[i]].deep ||
+            force
         ) {
-            obj[OBSERVABLE_IDENTIFIER].props[prop].deep = true;
+            obj[OBSERVABLE_IDENTIFIER].props[keys[i]].deep = true;
 
-            if (isPureObject(obj[prop])) {
-                objectMakeObservable(obj[prop], walk, force);
+            if (isPureObject(obj[keys[i]])) {
+                makeObservable(obj[keys[i]], true, force);
             }
         }
-    });
+    }
 }
 
 function notify() {
@@ -409,5 +448,46 @@ function unsetCallbackAsWatcherOf(callback, watchersSet) {
         callback[WATCHER_IDENTIFIER].watching.delete(watchersSet);
     }
 }
+
+
+export function makeArrayWatchable(arr) {
+    if (!arr[OBSERVABLE_IDENTIFIER]) {
+        setupObjState(arr);
+    }
+
+    // If array already has a watchable prototype, then exit
+    if (arr[HAS_ARRAY_WATCHABLE_PROTO]) {
+        return;
+    }
+
+    const arrCurrentProto = arr.__proto__; // eslint-disable-line
+
+    // Create prototype interceptors?
+    if (!arrCurrentProto[ARRAY_WATCHABLE_PROTO]) {
+        const arrProtoInterceptor = Object.create(arrCurrentProto);
+        mutatingMethods.forEach(method => {
+            objectDefineProperty(arrProtoInterceptor, method, {
+                configurable: true,
+                writable: true,
+                value: function arrayMethodInterceptor(...args) {
+                    const response = arrCurrentProto[method].call(this, ...args);
+                    arr[OBSERVABLE_IDENTIFIER].watchers.notify();
+                    return response;
+                }
+            });
+        });
+        objectDefineProperty(arrProtoInterceptor, HAS_ARRAY_WATCHABLE_PROTO, {
+            value: true
+        });
+        objectDefineProperty(arrCurrentProto, ARRAY_WATCHABLE_PROTO, {
+            configurable: true,
+            writable: true,
+            value: arrProtoInterceptor
+        });
+    }
+
+    arr.__proto__ = arrCurrentProto[ARRAY_WATCHABLE_PROTO]; // eslint-disable-line
+}
+
 
 export default objectWatchProp;

@@ -1,6 +1,6 @@
 export {
     objectWatchProp,
-    objectMakeObservable,
+    makeObservable,
     setDependencyTracker,
     stopTrackerNotification,
     unsetDependencyTracker
