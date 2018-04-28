@@ -4,6 +4,7 @@ import nextTick from "common-micro-libs/src/jsutils/nextTick"
 
 //---------------------------------------------------------------------------
 export const OBSERVABLE_IDENTIFIER = "___$observable$___"; // FIXME: this should be a Symbol()
+
 const DEFAULT_PROP_DEFINITION = { configurable: true, enumerable: true };
 const TRACKERS = new Set();
 const WATCHER_IDENTIFIER = "___$watching$___";
@@ -179,6 +180,7 @@ function setupPropInterceptors(obj, prop) {
             if (propOldDescriptor.get) {
                 return propOldDescriptor.get.call(obj);
             }
+
             return obj[OBSERVABLE_IDENTIFIER].props[prop].val;
         },
         set(newVal) {
@@ -224,10 +226,12 @@ function setupPropInterceptors(obj, prop) {
  *  if true, then even if object looks like it might have already been
  *  converted to an observable, it will still be walked
  *  (if `walk` is `true`)
+ *
+ * @return {Object|Array} Original `obj` is returned
  */
 export function makeObservable(obj, walk = true, force = false) {
     if (!isPureObject(obj) && !isArray(obj)) {
-        return;
+        return obj;
     }
 
     if (!obj[OBSERVABLE_IDENTIFIER]) {
@@ -257,6 +261,8 @@ export function makeObservable(obj, walk = true, force = false) {
     else {
         walkObject(obj);
     }
+
+    return obj;
 }
 
 
@@ -274,12 +280,6 @@ function walkObject(obj, force) {
         if (!obj[OBSERVABLE_IDENTIFIER].props[keys[i]]) {
             setupPropState(obj, keys[i]);
             setupPropInterceptors(obj, keys[i]);
-
-            // PropState `deep` flag matches the object's `deep` flag. If that is currently
-            // true, then `force` the walking of the prop value
-            if (obj[OBSERVABLE_IDENTIFIER].props[keys[i]].deep) {
-                force = true;
-            }
         }
 
         // Do we need to walk this property's value?

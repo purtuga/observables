@@ -4,7 +4,8 @@ import {
     objectWatchProp,
     setDependencyTracker,
     unsetDependencyTracker,
-    queueCallbackAndScheduleRun
+    queueCallbackAndScheduleRun,
+    makeObservable
 } from "./objectWatchProp";
 
 /**
@@ -60,14 +61,13 @@ export function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
             if (silentSet) {
                 propValue = newValue;
 
-                // FIXME: if property is marked as "deep", then make value observable.
-                //          This only needs to be done here - in silent mode. in regular
-                //          update, watchProp takes care of it.
-
+                if (obj[OBSERVABLE_IDENTIFIER].props[prop].deep) {
+                    makeObservable(propValue);
+                }
             } else {
                 // Update is done via the prop assignment, which means that
-                // all dependent/watcher notifiers is handled as part of the
-                // objectWatchProp() functionality.
+                // handing of `deep` and all dependent/watcher notifiers is handled
+                // as part of the objectWatchProp() functionality.
                 // Doing the update this way also supports the use of these
                 // objects with other library that may also intercept getter/setters.
                 allowSet = true;

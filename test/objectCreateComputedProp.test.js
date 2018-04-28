@@ -1,4 +1,5 @@
-import {objectCreateComputedProp, objectWatchProp} from "../src"
+import {objectCreateComputedProp, objectWatchProp, makeObservable} from "../src"
+import {OBSERVABLE_IDENTIFIER} from "../src/objectWatchProp"
 import test from "tape"
 
 //============================================================
@@ -73,5 +74,55 @@ test("objectCreateComputedProp", sub => {
                 t.equal(computedNotify.count, 1, "Update to dependency notifies watchers");
             })
             .catch(console.error);
+    });
+
+    sub.test("\n# objectCreateComputedProp: values should be observables\n#", t => {
+        t.plan(12);
+
+        const obj = {
+            v1: "value 1"
+        };
+        const generateValue = () => {
+            generateValue.count++;
+            return {
+                v1: obj.v1,
+                key1: "value 1",
+                key2: {
+                    key2_1: {
+                        value: 1
+                    }
+                },
+                key3: [
+                    { key3_0: "zero" }
+                ]
+            };
+        };
+        let value;
+
+        generateValue.count = 0;
+        makeObservable(obj);
+
+        objectCreateComputedProp(obj, "value", generateValue);
+        value = obj.value;
+
+        t.ok(!!value[OBSERVABLE_IDENTIFIER], "Returned object is observable");
+
+        ["v1", "key1", "key2", "key3"].forEach(propName => {
+            t.ok(!!value[OBSERVABLE_IDENTIFIER].props[propName], `prop ${propName} in returned object is observable`);
+        });
+
+        t.ok(value.v1 === obj.v1);
+
+        // now update the dependency and ensure new returned object is observable
+        obj.v1 = "v1 updated";
+        value = obj.value;
+
+        t.ok(!!value[OBSERVABLE_IDENTIFIER], "Returned object is observable");
+
+        ["v1", "key1", "key2", "key3"].forEach(propName => {
+            t.ok(!!value[OBSERVABLE_IDENTIFIER].props[propName], `prop ${propName} in returned object is observable`);
+        });
+
+        t.ok(value.v1 === obj.v1);
     });
 });
