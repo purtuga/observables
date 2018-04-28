@@ -115,18 +115,21 @@
         /* unused harmony export functionBind */
         /* unused harmony export functionBindCall */
         /* harmony export (binding) */
-        __webpack_require__.d(__webpack_exports__, "d", function() {
+        __webpack_require__.d(__webpack_exports__, "e", function() {
             return objectDefineProperty;
         });
         /* harmony export (binding) */
-        __webpack_require__.d(__webpack_exports__, "c", function() {
+        __webpack_require__.d(__webpack_exports__, "d", function() {
             return objectDefineProperties;
         });
         /* harmony export (binding) */
-        __webpack_require__.d(__webpack_exports__, "e", function() {
+        __webpack_require__.d(__webpack_exports__, "f", function() {
             return objectKeys;
         });
-        /* unused harmony export isArray */
+        /* harmony export (binding) */
+        __webpack_require__.d(__webpack_exports__, "c", function() {
+            return isArray;
+        });
         /* unused harmony export arrayForEach */
         /* harmony export (binding) */
         __webpack_require__.d(__webpack_exports__, "b", function() {
@@ -150,7 +153,7 @@
         var objectKeys = Object.keys;
         // Array
         var arr = [];
-        Array.isArray;
+        var isArray = Array.isArray;
         functionBindCall(arr.forEach);
         var arrayIndexOf = functionBindCall(arr.indexOf);
         functionBindCall(arr.splice);
@@ -168,17 +171,20 @@
             return OBSERVABLE_IDENTIFIER;
         });
         /* harmony export (immutable) */
-        __webpack_exports__.c = objectWatchProp;
+        __webpack_exports__.d = objectWatchProp;
+        /* unused harmony export setupObjState */
         /* harmony export (immutable) */
-        __webpack_exports__.b = objectMakeObservable;
+        __webpack_exports__.c = makeObservable;
         /* harmony export (immutable) */
-        __webpack_exports__.d = queueCallbackAndScheduleRun;
+        __webpack_exports__.e = queueCallbackAndScheduleRun;
         /* harmony export (immutable) */
-        __webpack_exports__.e = setDependencyTracker;
+        __webpack_exports__.f = setDependencyTracker;
         /* harmony export (immutable) */
-        __webpack_exports__.g = unsetDependencyTracker;
+        __webpack_exports__.h = unsetDependencyTracker;
         /* harmony export (immutable) */
-        __webpack_exports__.f = stopTrackerNotification;
+        __webpack_exports__.g = stopTrackerNotification;
+        /* harmony export (immutable) */
+        __webpack_exports__.b = makeArrayWatchable;
         /* harmony import */
         var __WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__ = __webpack_require__(0);
         /* harmony import */
@@ -201,6 +207,9 @@
         };
         var TRACKERS = new __WEBPACK_IMPORTED_MODULE_1_common_micro_libs_src_jsutils_Set__.a();
         var WATCHER_IDENTIFIER = "___$watching$___";
+        var ARRAY_WATCHABLE_PROTO = "__$watchable$__";
+        var HAS_ARRAY_WATCHABLE_PROTO = "__$is" + ARRAY_WATCHABLE_PROTO;
+        var mutatingMethods = [ "pop", "push", "shift", "splice", "unshift", "sort", "reverse" ];
         var isPureObject = function(obj) {
             return obj && "[object Object]" === Object.prototype.toString.call(obj);
         };
@@ -261,9 +270,8 @@
                 setupPropInterceptors(obj, prop);
             } else prop && obj[OBSERVABLE_IDENTIFIER].props[prop].setupInterceptors && setupPropInterceptors(obj, prop);
             if (prop && callback) obj[OBSERVABLE_IDENTIFIER].props[prop].storeCallback(callback); else if (!prop) {
-                objectMakeObservable(obj, false);
-                callback && // FIXME: should use `storeCallback` here?
-                obj[OBSERVABLE_IDENTIFIER].watchers.add(callback);
+                makeObservable(obj, false);
+                callback && obj[OBSERVABLE_IDENTIFIER].storeCallback(callback);
             }
             /**
      * Unwatch an object property or object.
@@ -277,13 +285,14 @@
         }
         function setupObjState(obj) {
             if (!obj[OBSERVABLE_IDENTIFIER]) {
-                Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.d)(obj, OBSERVABLE_IDENTIFIER, {
+                Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.e)(obj, OBSERVABLE_IDENTIFIER, {
                     configurable: true,
                     writable: true,
                     deep: false,
                     value: {
                         props: {},
-                        watchers: new __WEBPACK_IMPORTED_MODULE_1_common_micro_libs_src_jsutils_Set__.a()
+                        watchers: new __WEBPACK_IMPORTED_MODULE_1_common_micro_libs_src_jsutils_Set__.a(),
+                        storeCallback: storeCallback
                     }
                 });
                 setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].watchers, true);
@@ -304,7 +313,7 @@
                     parent: obj[OBSERVABLE_IDENTIFIER],
                     storeCallback: storeCallback,
                     setupInterceptors: true,
-                    deep: false
+                    deep: obj[OBSERVABLE_IDENTIFIER].deep
                 };
                 setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].props[prop].dependents, false);
                 setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].props[prop].watchers, true);
@@ -313,8 +322,12 @@
         }
         function setupPropInterceptors(obj, prop) {
             var propOldDescriptor = Object.getOwnPropertyDescriptor(obj, prop) || DEFAULT_PROP_DEFINITION;
-            propOldDescriptor.get || (obj[OBSERVABLE_IDENTIFIER].props[prop].val = obj[prop]);
-            Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.d)(obj, prop, {
+            if (!propOldDescriptor.get) {
+                obj[OBSERVABLE_IDENTIFIER].props[prop].val = obj[prop];
+                // If prop is marked as `deep` then walk the value and convert it to observables
+                obj[OBSERVABLE_IDENTIFIER].props[prop].deep && makeObservable(obj[OBSERVABLE_IDENTIFIER].props[prop].val);
+            }
+            Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.e)(obj, prop, {
                 configurable: propOldDescriptor.configurable || false,
                 enumerable: propOldDescriptor.enumerable || false,
                 get: function() {
@@ -327,7 +340,7 @@
                     propOldDescriptor.set ? newVal = propOldDescriptor.set.call(obj, newVal) : obj[OBSERVABLE_IDENTIFIER].props[prop].val = newVal;
                     // If this `deep` is true and the new value is an object,
                     // then ensure its observable
-                    obj[OBSERVABLE_IDENTIFIER].props[prop].deep && isPureObject(newVal) && objectMakeObservable(newVal);
+                    obj[OBSERVABLE_IDENTIFIER].props[prop].deep && makeObservable(newVal);
                     if (newVal !== priorVal) {
                         obj[OBSERVABLE_IDENTIFIER].props[prop].watchers.notify();
                         obj[OBSERVABLE_IDENTIFIER].props[prop].dependents.notify();
@@ -337,11 +350,13 @@
                 }
             });
             obj[OBSERVABLE_IDENTIFIER].props[prop].setupInterceptors = false;
+            // Notify object watchers that a new prop was added
+            propOldDescriptor === DEFAULT_PROP_DEFINITION && obj[OBSERVABLE_IDENTIFIER].watchers.notify();
         }
         /**
  * Makes an object (deep) observable.
  *
- * @param {Object} obj
+ * @param {Object|Array} obj
  * @param {Boolean} [walk=true]
  *  If `true` (default), the object's property values are walked and
  *  also make observable.
@@ -349,29 +364,40 @@
  *  if true, then even if object looks like it might have already been
  *  converted to an observable, it will still be walked
  *  (if `walk` is `true`)
+ *
+ * @return {Object|Array} Original `obj` is returned
  */
-        function objectMakeObservable(obj) {
+        function makeObservable(obj) {
             var walk = !(arguments.length > 1 && void 0 !== arguments[1]) || arguments[1];
             var force = arguments.length > 2 && void 0 !== arguments[2] && arguments[2];
-            if (!isPureObject(obj)) return;
-            obj[OBSERVABLE_IDENTIFIER] || setupObjState(obj);
-            // If object is marked as "deep", then no need to do anything
-            // else - object has already been converted to observable.
+            if (!isPureObject(obj) && !Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.c)(obj)) return obj;
+            obj[OBSERVABLE_IDENTIFIER] || (// OBJECT
+            isPureObject(obj) ? setupObjState(obj, force) : Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.c)(obj) && makeArrayWatchable(obj));
+            // If object is marked as "deep" and we are not forcing the walk,
+            // then no need to do anything. Otherwise, mark this object as
+            // being `deep` and keep going
             if (!force && obj[OBSERVABLE_IDENTIFIER].deep) return;
             walk && (obj[OBSERVABLE_IDENTIFIER].deep = true);
+            Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.c)(obj) ? walkArray(obj) : walkObject(obj);
+            return obj;
+        }
+        function walkArray(arr, force) {
+            for (var i = 0, t = arr.length; i < t; i++) makeObservable(arr[i], true, force);
+        }
+        function walkObject(obj, force) {
             // make ALL props observable
-            Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.e)(obj).forEach(function(prop) {
-                // TODO: can this function be made static?
-                if (!obj[OBSERVABLE_IDENTIFIER].props[prop]) {
-                    setupPropState(obj, prop);
-                    setupPropInterceptors(obj, prop);
+            var keys = Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.f)(obj);
+            for (var i = 0, t = keys.length; i < t; i++) {
+                if (!obj[OBSERVABLE_IDENTIFIER].props[keys[i]]) {
+                    setupPropState(obj, keys[i]);
+                    setupPropInterceptors(obj, keys[i]);
                 }
                 // Do we need to walk this property's value?
-                if (walk && (!obj[OBSERVABLE_IDENTIFIER].props[prop].deep || force)) {
-                    obj[OBSERVABLE_IDENTIFIER].props[prop].deep = true;
-                    isPureObject(obj[prop]) && objectMakeObservable(obj[prop], walk, force);
+                if (!obj[OBSERVABLE_IDENTIFIER].props[keys[i]].deep || force) {
+                    obj[OBSERVABLE_IDENTIFIER].props[keys[i]].deep = true;
+                    isPureObject(obj[keys[i]]) && makeObservable(obj[keys[i]], true, force);
                 }
-            });
+            }
         }
         function notify() {
             // this: new Set(). Set instance could have two additional attributes: async ++ isQueued
@@ -401,7 +427,7 @@
         }
         function storeCallback(callback) {
             // this === PropState
-            if (callback.asDependent) {
+            if (callback.asDependent && this.dependents) {
                 setCallbackAsWatcherOf(callback, this.dependents);
                 this.dependents.add(callback);
             } else {
@@ -413,9 +439,11 @@
             // this == obj
             if (callback) {
                 // Object state does not have dependents
-                propSetup.dependents && propSetup.dependents.delete(callback);
+                if (propSetup.dependents) {
+                    propSetup.dependents.delete(callback);
+                    unsetCallbackAsWatcherOf(callback, propSetup.dependents);
+                }
                 propSetup.watchers.delete(callback);
-                unsetCallbackAsWatcherOf(callback, propSetup.dependents);
                 unsetCallbackAsWatcherOf(callback, propSetup.watchers);
             }
         }
@@ -459,14 +487,14 @@
  */
         function setCallbackAsWatcherOf(callback, watchersSet) {
             if (!callback[WATCHER_IDENTIFIER]) {
-                Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.d)(callback, WATCHER_IDENTIFIER, {
+                Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.e)(callback, WATCHER_IDENTIFIER, {
                     configurable: true,
                     writable: true,
                     value: {
                         watching: new __WEBPACK_IMPORTED_MODULE_1_common_micro_libs_src_jsutils_Set__.a()
                     }
                 });
-                Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.d)(callback, "stopWatchingAll", {
+                Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.e)(callback, "stopWatchingAll", {
                     configurable: true,
                     writable: true,
                     value: function() {
@@ -488,6 +516,39 @@
         function unsetCallbackAsWatcherOf(callback, watchersSet) {
             callback[WATCHER_IDENTIFIER] && callback[WATCHER_IDENTIFIER].watching.delete(watchersSet);
         }
+        function makeArrayWatchable(arr) {
+            arr[OBSERVABLE_IDENTIFIER] || setupObjState(arr);
+            // If array already has a watchable prototype, then exit
+            if (arr[HAS_ARRAY_WATCHABLE_PROTO]) return;
+            var arrCurrentProto = arr.__proto__;
+            // eslint-disable-line
+            // Create prototype interceptors?
+            if (!arrCurrentProto[ARRAY_WATCHABLE_PROTO]) {
+                var arrProtoInterceptor = Object.create(arrCurrentProto);
+                mutatingMethods.forEach(function(method) {
+                    Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.e)(arrProtoInterceptor, method, {
+                        configurable: true,
+                        writable: true,
+                        value: function() {
+                            var _arrCurrentProto$meth;
+                            for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) args[_key] = arguments[_key];
+                            var response = (_arrCurrentProto$meth = arrCurrentProto[method]).call.apply(_arrCurrentProto$meth, [ this ].concat(args));
+                            arr[OBSERVABLE_IDENTIFIER].watchers.notify();
+                            return response;
+                        }
+                    });
+                });
+                Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.e)(arrProtoInterceptor, HAS_ARRAY_WATCHABLE_PROTO, {
+                    value: true
+                });
+                Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.e)(arrCurrentProto, ARRAY_WATCHABLE_PROTO, {
+                    configurable: true,
+                    writable: true,
+                    value: arrProtoInterceptor
+                });
+            }
+            arr.__proto__ = arrCurrentProto[ARRAY_WATCHABLE_PROTO];
+        }
     }, /* 2 */
     /***/
     function(module, __webpack_exports__, __webpack_require__) {
@@ -499,29 +560,35 @@
         var __WEBPACK_IMPORTED_MODULE_0__objectWatchProp__ = __webpack_require__(1);
         /* harmony reexport (binding) */
         __webpack_require__.d(__webpack_exports__, "objectWatchProp", function() {
+            return __WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.d;
+        });
+        /* harmony reexport (binding) */
+        __webpack_require__.d(__webpack_exports__, "makeObservable", function() {
             return __WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.c;
         });
         /* harmony reexport (binding) */
-        __webpack_require__.d(__webpack_exports__, "objectMakeObservable", function() {
-            return __WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.b;
-        });
-        /* harmony reexport (binding) */
         __webpack_require__.d(__webpack_exports__, "setDependencyTracker", function() {
-            return __WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.e;
-        });
-        /* harmony reexport (binding) */
-        __webpack_require__.d(__webpack_exports__, "stopTrackerNotification", function() {
             return __WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.f;
         });
         /* harmony reexport (binding) */
-        __webpack_require__.d(__webpack_exports__, "unsetDependencyTracker", function() {
+        __webpack_require__.d(__webpack_exports__, "stopTrackerNotification", function() {
             return __WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.g;
+        });
+        /* harmony reexport (binding) */
+        __webpack_require__.d(__webpack_exports__, "unsetDependencyTracker", function() {
+            return __WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.h;
         });
         /* harmony import */
         var __WEBPACK_IMPORTED_MODULE_1__objectCreateComputedProp__ = __webpack_require__(8);
         /* harmony reexport (binding) */
         __webpack_require__.d(__webpack_exports__, "objectCreateComputedProp", function() {
             return __WEBPACK_IMPORTED_MODULE_1__objectCreateComputedProp__.a;
+        });
+        /* harmony import */
+        var __WEBPACK_IMPORTED_MODULE_2__arrayWatch__ = __webpack_require__(9);
+        /* harmony reexport (binding) */
+        __webpack_require__.d(__webpack_exports__, "arrayWatch", function() {
+            return __WEBPACK_IMPORTED_MODULE_2__arrayWatch__.a;
         });
     }, /* 3 */
     /***/
@@ -540,7 +607,7 @@
         /* harmony default export */
         __webpack_exports__.a = Set;
         function FakeSet() {}
-        Object(__WEBPACK_IMPORTED_MODULE_2__runtime_aliases__.c)(FakeSet.prototype, function(obj, key, value) {
+        Object(__WEBPACK_IMPORTED_MODULE_2__runtime_aliases__.d)(FakeSet.prototype, function(obj, key, value) {
             key in obj ? Object.defineProperty(obj, key, {
                 value: value,
                 enumerable: true,
@@ -556,7 +623,7 @@
             _: {
                 get: function() {
                     var values = [];
-                    Object(__WEBPACK_IMPORTED_MODULE_2__runtime_aliases__.d)(this, "_", {
+                    Object(__WEBPACK_IMPORTED_MODULE_2__runtime_aliases__.e)(this, "_", {
                         value: values
                     });
                     return values;
@@ -674,7 +741,7 @@
         //-----------------------------------------------------------------------
         // Great reference: http://2ality.com/2015/02/es6-iteration.html
         function FakeIterator(keys, values) {
-            Object(__WEBPACK_IMPORTED_MODULE_0__runtime_aliases__.d)(this, "_", {
+            Object(__WEBPACK_IMPORTED_MODULE_0__runtime_aliases__.e)(this, "_", {
                 value: {
                     keys: keys.slice(0),
                     values: values ? values.slice(0) : null,
@@ -683,7 +750,7 @@
                 }
             });
         }
-        Object(__WEBPACK_IMPORTED_MODULE_0__runtime_aliases__.c)(FakeIterator.prototype, {
+        Object(__WEBPACK_IMPORTED_MODULE_0__runtime_aliases__.d)(FakeIterator.prototype, {
             constructor: {
                 value: FakeIterator
             },
@@ -705,7 +772,7 @@
                 }
             }
         });
-        Object(__WEBPACK_IMPORTED_MODULE_0__runtime_aliases__.d)(FakeIterator.prototype, __WEBPACK_IMPORTED_MODULE_0__runtime_aliases__.a, {
+        Object(__WEBPACK_IMPORTED_MODULE_0__runtime_aliases__.e)(FakeIterator.prototype, __WEBPACK_IMPORTED_MODULE_0__runtime_aliases__.a, {
             value: function() {
                 return this;
             }
@@ -787,7 +854,7 @@
                 // If we have watchers on this computed prop, then queue the
                 // value generator function.
                 // else, just notify dependents.
-                obj[__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.a].props[prop].watchers.size ? Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.d)(setPropValue) : obj[__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.a].props[prop].dependents.size && obj[__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.a].props[prop].dependents.notify();
+                obj[__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.a].props[prop].watchers.size ? Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.e)(setPropValue) : obj[__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.a].props[prop].dependents.size && obj[__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.a].props[prop].dependents.notify();
             };
             var setPropValue = function(silentSet) {
                 // if there is no longer a need to regenerate the value, exit.
@@ -795,14 +862,17 @@
                 // between scheduled updates.
                 if (!needsNewValue) return;
                 try {
-                    Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.e)(dependencyTracker);
+                    Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.f)(dependencyTracker);
                     newValue = setter.call(obj, obj);
-                    Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.g)(dependencyTracker);
+                    Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.h)(dependencyTracker);
                     // IMPORTANT: turn if off right after setter is run!
-                    if (silentSet) propValue = newValue; else {
+                    if (silentSet) {
+                        propValue = newValue;
+                        obj[__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.a].props[prop].deep && Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.c)(propValue);
+                    } else {
                         // Update is done via the prop assignment, which means that
-                        // all dependent/watcher notifiers is handled as part of the
-                        // objectWatchProp() functionality.
+                        // handing of `deep` and all dependent/watcher notifiers is handled
+                        // as part of the objectWatchProp() functionality.
                         // Doing the update this way also supports the use of these
                         // objects with other library that may also intercept getter/setters.
                         allowSet = true;
@@ -813,7 +883,7 @@
                     allowSet = false;
                     needsNewValue = false;
                     newValue = void 0;
-                    Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.g)(dependencyTracker);
+                    Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.h)(dependencyTracker);
                     throw e;
                 }
                 allowSet = false;
@@ -828,7 +898,7 @@
                 // Was prop an observable? if so, signal that interceptors must be redefined.
                 obj[__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.a] && obj[__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.a].props[prop] && (obj[__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.a].props[prop].setupInterceptors = true);
             }
-            Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.d)(obj, prop, {
+            Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.e)(obj, prop, {
                 configurable: true,
                 enumerable: !!enumerable,
                 get: function() {
@@ -843,7 +913,33 @@
                     return propValue;
                 }
             });
-            Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.c)(obj, prop);
+            Object(__WEBPACK_IMPORTED_MODULE_1__objectWatchProp__.d)(obj, prop);
+        }
+    }, /* 9 */
+    /***/
+    function(module, __webpack_exports__, __webpack_require__) {
+        "use strict";
+        /* harmony export (immutable) */
+        __webpack_exports__.a = arrayWatch;
+        /* harmony import */
+        var __WEBPACK_IMPORTED_MODULE_0__objectWatchProp__ = __webpack_require__(1);
+        //========================================================================
+        /**
+ * Watch an array for changes.  Utiltiy will override the array's mutating methods
+ * so that notification can be provided to watchers when it changes
+ *
+ * @param {Array} arr
+ * @param {Function} [callback]
+ *  If not defined, then array is simply made "watchable"
+ */
+        function arrayWatch(arr, callback) {
+            arr[__WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.a] || Object(__WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.b)(arr);
+            callback && arr[__WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.a].storeCallback(callback);
+            var unWatch = function() {
+                return arr[__WEBPACK_IMPORTED_MODULE_0__objectWatchProp__.a].watchers.delete(callback);
+            };
+            unWatch.destroy = unWatch;
+            return unWatch;
         }
     } ]);
 });
