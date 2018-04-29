@@ -125,4 +125,29 @@ test("objectCreateComputedProp", sub => {
 
         t.ok(value.v1 === obj.v1);
     });
+
+    sub.test("\n# objectCreateComputedProp: array.size store dependency trackers\n#", t => {
+        t.plan(2);
+
+        const obj = {
+            v1: "size",
+            v2: [1, 2]
+        };
+        const generateValue = () => {
+            generateValue.count++;
+            return `${obj.v1}: ${obj.v2.size}`;
+        };
+
+        generateValue.count = 0;
+        makeObservable(obj);
+        objectCreateComputedProp(obj, "value", generateValue);
+
+        t.equal(obj.value, "size: 2", "computed value generator return expected value");
+
+        // Trigger changes/notification
+        obj.v2.push(3);
+
+        // FIXME: why is this failing? works in browser... not an async problem either.
+        t.equal(obj.value, "size: 3", "computed value generator was called on array change");
+    });
 });

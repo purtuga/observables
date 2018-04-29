@@ -122,10 +122,12 @@ export function setupObjState(obj) {
             deep: false,
             value: {
                 props: {},
+                dependents: new Set(),
                 watchers: new Set(),
                 storeCallback: storeCallback
             }
         });
+        setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].dependents, false);
         setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].watchers, true);
     }
 }
@@ -356,7 +358,7 @@ function storeCallback(callback) {
     }
 }
 
-function destroyWatcher(callback, propSetup) {
+export function destroyWatcher(callback, propSetup) {
     // this == obj
     if (callback) {
         // Object state does not have dependents
@@ -471,6 +473,7 @@ export function makeArrayWatchable(arr) {
                 writable: true,
                 value: function arrayMethodInterceptor(...args) {
                     const response = arrCurrentProto[method].call(this, ...args);
+                    arr[OBSERVABLE_IDENTIFIER].dependents.notify();
                     arr[OBSERVABLE_IDENTIFIER].watchers.notify();
                     return response;
                 }

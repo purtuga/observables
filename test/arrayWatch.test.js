@@ -6,7 +6,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms || 2));
 const getChangeNotify = () => {function ch(){ch.count++};ch.count = 0;return ch;};
 
 test("arrayWatch: Mutating methods call watchers", t => {
-    t.plan(12);
+    t.plan(14);
     let arr = [1, 2, 3, 4, 5, 6, 7, 8, 9];
     let changeNotify = getChangeNotify();
     let unWatch = arrayWatch(arr, changeNotify);
@@ -17,9 +17,13 @@ test("arrayWatch: Mutating methods call watchers", t => {
     t.ok("function" === typeof unWatch.destroy, "unwatch() has property 'destroy`");
     t.ok("stopWatchingAll" in changeNotify, "change notify callback has 'stopWatchingAll'");
 
+    t.equal(arr.size, arr.length, "size property reports correct length");
+
     delay()
         .then(() => {
+            const expectedSize = arr.length - 1;
             arr.pop();
+            t.equal(arr.size, expectedSize, "size was reported correctly after mutation");
             return delay().then(() => t.equal(changeNotify.count, 1, "pop() notifies watchers"));
         })
         .then(() => {
