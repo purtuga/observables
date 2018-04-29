@@ -473,8 +473,8 @@ export function makeArrayWatchable(arr) {
                 writable: true,
                 value: function arrayMethodInterceptor(...args) {
                     const response = arrCurrentProto[method].call(this, ...args);
-                    arr[OBSERVABLE_IDENTIFIER].dependents.notify();
-                    arr[OBSERVABLE_IDENTIFIER].watchers.notify();
+                    this[OBSERVABLE_IDENTIFIER].dependents.notify();
+                    this[OBSERVABLE_IDENTIFIER].watchers.notify();
                     return response;
                 }
             });
