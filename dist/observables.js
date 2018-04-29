@@ -177,6 +177,7 @@
         __webpack_exports__.c = makeObservable;
         /* harmony export (immutable) */
         __webpack_exports__.e = queueCallbackAndScheduleRun;
+        /* unused harmony export destroyWatcher */
         /* harmony export (immutable) */
         __webpack_exports__.f = setDependencyTracker;
         /* harmony export (immutable) */
@@ -291,10 +292,12 @@
                     deep: false,
                     value: {
                         props: {},
+                        dependents: new __WEBPACK_IMPORTED_MODULE_1_common_micro_libs_src_jsutils_Set__.a(),
                         watchers: new __WEBPACK_IMPORTED_MODULE_1_common_micro_libs_src_jsutils_Set__.a(),
                         storeCallback: storeCallback
                     }
                 });
+                setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].dependents, false);
                 setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].watchers, true);
             }
         }
@@ -533,14 +536,25 @@
                             var _arrCurrentProto$meth;
                             for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) args[_key] = arguments[_key];
                             var response = (_arrCurrentProto$meth = arrCurrentProto[method]).call.apply(_arrCurrentProto$meth, [ this ].concat(args));
+                            arr[OBSERVABLE_IDENTIFIER].dependents.notify();
                             arr[OBSERVABLE_IDENTIFIER].watchers.notify();
                             return response;
                         }
                     });
                 });
+                // VALUE ADD: include a `size` read only attribute
+                Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.e)(arrProtoInterceptor, "size", {
+                    configurable: true,
+                    get: function() {
+                        TRACKERS.size && TRACKERS.forEach(this[OBSERVABLE_IDENTIFIER].storeCallback, this[OBSERVABLE_IDENTIFIER]);
+                        return this.length;
+                    }
+                });
+                // Add flag to new array interceptor prototype indicating its watchable
                 Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.e)(arrProtoInterceptor, HAS_ARRAY_WATCHABLE_PROTO, {
                     value: true
                 });
+                // Store the new interceptor prototype on the real prototype
                 Object(__WEBPACK_IMPORTED_MODULE_0_common_micro_libs_src_jsutils_runtime_aliases__.e)(arrCurrentProto, ARRAY_WATCHABLE_PROTO, {
                     configurable: true,
                     writable: true,
