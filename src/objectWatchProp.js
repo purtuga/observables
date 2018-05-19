@@ -10,7 +10,7 @@ const TRACKERS = new Set();
 const WATCHER_IDENTIFIER = "___$watching$___";
 const ARRAY_WATCHABLE_PROTO = "__$watchable$__";
 const HAS_ARRAY_WATCHABLE_PROTO = `__$is${ARRAY_WATCHABLE_PROTO}`;
-const mutatingMethods = [
+const ARRAY_MUTATING_METHODS = [
     "pop",
     "push",
     "shift",
@@ -37,9 +37,18 @@ let isNotifyQueued = false;
  *  properties are made "watchable")
  *
  *  __NOTE:__
- *  The callback will receive a new non-enumerable property named `stopWatchingAll` of
+ *  The callback will include a new non-enumerable property named `stopWatchingAll` of
  *  type `Function` that can be used to remove the given callback from all places where
- *  it is being used to watch a property.
+ *  it is being used to watch a property. example:
+ *
+ *      const obj1 = { first: "john" };
+ *      const obj2 = { last: "smith" };
+ *      const watcher = () => console.log("changed");
+ *
+ *      objectWatchProp(obj, "first", watcher);
+ *      objectWatchProp(obj1, "last", watcher);
+ *
+ *      watcher.stopWatchingAll(); // removes callback from all objects that it is watching
  *
  *
  * @return {ObjectUnwatchProp}
@@ -467,7 +476,7 @@ export function makeArrayWatchable(arr) {
     // Create prototype interceptors?
     if (!arrCurrentProto[ARRAY_WATCHABLE_PROTO]) {
         const arrProtoInterceptor = Object.create(arrCurrentProto);
-        mutatingMethods.forEach(method => {
+        ARRAY_MUTATING_METHODS.forEach(method => {
             objectDefineProperty(arrProtoInterceptor, method, {
                 configurable: true,
                 writable: true,
