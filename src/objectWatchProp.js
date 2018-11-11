@@ -1,6 +1,6 @@
-import {objectDefineProperty, objectKeys, isArray} from "common-micro-libs/src/jsutils/runtime-aliases";
-import Set from "common-micro-libs/src/jsutils/Set"
-import nextTick from "common-micro-libs/src/jsutils/nextTick"
+import {objectDefineProperty, objectKeys, isArray} from "@purtuga/common/src/jsutils/runtime-aliases";
+import Set from "@purtuga/common/src/jsutils/Set"
+import nextTick from "@purtuga/common/src/jsutils/nextTick"
 
 //---------------------------------------------------------------------------
 export const OBSERVABLE_IDENTIFIER = "___$observable$___"; // FIXME: this should be a Symbol()
@@ -481,6 +481,7 @@ export function makeArrayWatchable(arr) {
                 configurable: true,
                 writable: true,
                 value: function arrayMethodInterceptor(...args) {
+                    // FIXME: need to call `makeObservable` on any value that was inserted, if `deep` is true
                     const response = arrCurrentProto[method].call(this, ...args);
                     this[OBSERVABLE_IDENTIFIER].dependents.notify();
                     this[OBSERVABLE_IDENTIFIER].watchers.notify();

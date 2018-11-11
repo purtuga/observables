@@ -6,7 +6,7 @@ Enable the ability for Arrays and Objects to notify listeners when their content
 ## Installation
 
 ```bash
-$ npm install purtuga/observables --save-dev
+$ npm install @purtuga/observables --save
 ```
 
 ## Observe Objects

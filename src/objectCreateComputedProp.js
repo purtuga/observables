@@ -1,4 +1,4 @@
-import {objectDefineProperty} from "common-micro-libs/src/jsutils/runtime-aliases"
+import {objectDefineProperty} from "@purtuga/common/src/jsutils/runtime-aliases"
 import {
     OBSERVABLE_IDENTIFIER,
     objectWatchProp,
