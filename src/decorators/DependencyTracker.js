@@ -35,7 +35,7 @@ export function trackObservableDependencies (options){
             setupClassMemberInterceptor(
                 classDescriptor,
                 superMethods,
-                classDescriptor.elements.find(element => element.key === "member"),
+                classDescriptor.elements.find(element => element.key === member),
                 member,
                 tracker
             );
@@ -47,7 +47,7 @@ export function trackObservableDependencies (options){
                 setupClassMemberInterceptor(
                     classDescriptor,
                     superMethods,
-                    classDescriptor.elements.find(element => element.key === "member"),
+                    classDescriptor.elements.find(element => element.key === member),
                     member,
                     tracker,
                     true
@@ -96,6 +96,7 @@ function setupClassMemberInterceptor (classDescriptor, superMethods, currentMemb
     } else {
         const currentMemberMethod = currentMemberDescriptor.descriptor.value;
 
+        currentMemberDescriptor.descriptor = Object.assign({}, currentMemberDescriptor.descriptor);
         currentMemberDescriptor.descriptor.value = isStopMode
             ? function () {
                 stopTrackerNotification(getTracker.call(this, this));
