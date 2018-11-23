@@ -29,7 +29,8 @@
         "dist": "webpack --config node_modules/@purtuga/project-base/configs/webpack.config.js --env.build=prod.minified --env.build=prod.legacy.minified --env.build=prod.esm.minified",
         "setup:dev": "node node_modules/@purtuga/project-base/scripts/create-dev",
         "lint": "eslint -c ./node_modules/@purtuga/project-base/configs/eslint.config.js src/**/*.js",
-        "lint:fix": "eslint -c ./node_modules/@purtuga/project-base/configs/eslint.config.js --fix src/**/*.js"
+        "lint:fix": "eslint -c ./node_modules/@purtuga/project-base/configs/eslint.config.js --fix src/**/*.js",
+        "version": "npm run dist&&git add dist/*"
     },
     "repository": {
         "type": "git",
