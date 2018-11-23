@@ -143,6 +143,38 @@ console.log(user.summary); // Console: "Paul Tavares Has 3 Permission(s)"
 
 ```
 
+## Decorators
+
+The following decorators are available under `src/decorators` (but not in the built module):
+
+### DependencyTracker Class Decorator
+
+Intercept Class methods and setup observable dependency trackers prior to executing the method.
+
+Example:
+
+```javascript
+import {ComponentElement} from "@purtuga/ComponentElement"
+import {trackObservableDependencies} from "@purtuga/observables/src/decorators/DependencyTracker.js"
+
+//============================================================
+
+@trackObservableDependencies({
+    track: { _setView() { return this._queueUpdate; } },
+    stop: { didUnmount() { return this._queueUpdate; } }
+})
+class Component extends ComponentElement {}
+
+export { Component };
+```
+
+This decorator takes the following options:
+
+-   `track`: `{Object}` The methods that will be intercepted. The Object's Key is the method name and its value must be a function that returns the callback that will be used as the dependency tracker notifier. The Fucntion will be called with a context (`this`) of the Class instance and will also be given that class instance as the first argument. 
+-   `stop`: `{Object}` The methods that will be intercepted in order to remove all dependency track notification from a tracker notifier. Just like the above options, this object's key value must be a function that will be called with the class instance.
+
+
+
 ## License
 
 MIT License
