@@ -1,6 +1,6 @@
 {
     "name": "@purtuga/observables",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "description": "observe things and get notified when those things mutate",
     "main": "src/index.js",
     "module": "dist/observables.esm.min.js",
