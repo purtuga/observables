@@ -6,7 +6,7 @@ import nextTick from "@purtuga/common/src/jsutils/nextTick"
 export const OBSERVABLE_IDENTIFIER = "___$observable$___"; // FIXME: this should be a Symbol()
 
 const DEFAULT_PROP_DEFINITION = { configurable: true, enumerable: true };
-const TRACKERS = new Set();
+let TRACKERS = new Set();
 const WATCHER_IDENTIFIER = "___$watching$___";
 const ARRAY_WATCHABLE_PROTO = "__$watchable$__";
 const HAS_ARRAY_WATCHABLE_PROTO = `__$is${ARRAY_WATCHABLE_PROTO}`;
@@ -22,6 +22,16 @@ const ARRAY_MUTATING_METHODS = [
 const isPureObject = obj => obj && Object.prototype.toString.call(obj) === "[object Object]";
 const NOTIFY_QUEUE = new Set();
 let isNotifyQueued = false;
+
+// DEV MODE
+// This facilitates when in dev mode and using npm link'ed package.
+if (process.env.NODE_ENV !== "production") {
+    if (!window._OBSERVABLE_TRACKERS ) {
+        window._OBSERVABLE_TRACKERS = TRACKERS;
+    } else {
+        TRACKERS = window._OBSERVABLE_TRACKERS;
+    }
+}
 
 /**
  * A lightweight utility to Watch an object's properties and get notified when it changes.
@@ -412,8 +422,8 @@ export function unsetDependencyTracker(callback) {
  * @param {Function} callback
  */
 export function stopTrackerNotification(callback) {
-    if (callback[WATCHER_IDENTIFIER]) {
-        callback[WATCHER_IDENTIFIER].stopWatchingAll();
+    if (callback && callback.stopWatchingAll) {
+        callback.stopWatchingAll();
     }
 }
 
