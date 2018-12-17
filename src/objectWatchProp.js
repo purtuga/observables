@@ -1,4 +1,9 @@
-import {objectDefineProperty, objectKeys, isArray} from "@purtuga/common/src/jsutils/runtime-aliases";
+import {
+    objectDefineProperty,
+    objectKeys,
+    isArray,
+    isObject
+} from "@purtuga/common/src/jsutils/runtime-aliases";
 import Set from "@purtuga/common/src/jsutils/Set"
 import nextTick from "@purtuga/common/src/jsutils/nextTick"
 
@@ -19,9 +24,10 @@ const ARRAY_MUTATING_METHODS = [
     "sort",
     "reverse"
 ];
-const isPureObject = obj => obj && Object.prototype.toString.call(obj) === "[object Object]";
 const NOTIFY_QUEUE = new Set();
 let isNotifyQueued = false;
+
+export const isObservable = obj => !!obj[OBSERVABLE_IDENTIFIER];
 
 // DEV MODE
 // This facilitates when in dev mode and using npm link'ed package.
@@ -90,7 +96,7 @@ if (process.env.NODE_ENV !== "production") {
  *
  */
 export function objectWatchProp(obj, prop, callback) {
-    if (!obj[OBSERVABLE_IDENTIFIER]) {
+    if (!isObservable(obj)) {
         setupObjState(obj);
     }
 
@@ -134,7 +140,7 @@ export function objectWatchProp(obj, prop, callback) {
 }
 
 export function setupObjState(obj) {
-    if (!obj[OBSERVABLE_IDENTIFIER]) {
+    if (!isObservable(obj)) {
         objectDefineProperty(obj, OBSERVABLE_IDENTIFIER, {
             configurable: true,
             writable: true,
@@ -251,13 +257,13 @@ function setupPropInterceptors(obj, prop) {
  * @return {Object|Array} Original `obj` is returned
  */
 export function makeObservable(obj, walk = true, force = false) {
-    if (!isPureObject(obj) && !isArray(obj)) {
+    if (!isObject(obj) && !isArray(obj)) {
         return obj;
     }
 
-    if (!obj[OBSERVABLE_IDENTIFIER]) {
+    if (!isObservable(obj)) {
         // OBJECT
-        if (isPureObject(obj)) {
+        if (isObject(obj)) {
             setupObjState(obj, force);
         }
         // ARRAY
@@ -310,7 +316,7 @@ function walkObject(obj, force) {
         ) {
             obj[OBSERVABLE_IDENTIFIER].props[keys[i]].deep = true;
 
-            if (isPureObject(obj[keys[i]])) {
+            if (isObject(obj[keys[i]])) {
                 makeObservable(obj[keys[i]], true, force);
             }
         }
@@ -472,7 +478,7 @@ function unsetCallbackAsWatcherOf(callback, watchersSet) {
 
 
 export function makeArrayWatchable(arr) {
-    if (!arr[OBSERVABLE_IDENTIFIER]) {
+    if (!isObservable(arr)) {
         setupObjState(arr);
     }
 
