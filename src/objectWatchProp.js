@@ -8,7 +8,7 @@ import Set from "@purtuga/common/src/jsutils/Set"
 import nextTick from "@purtuga/common/src/jsutils/nextTick"
 
 //---------------------------------------------------------------------------
-export const OBSERVABLE_IDENTIFIER = "___$observable$___"; // FIXME: this should be a Symbol()
+export const OBSERVABLE_IDENTIFIER = "___$observable$___";
 
 const DEFAULT_PROP_DEFINITION = { configurable: true, enumerable: true };
 let TRACKERS = new Set();
@@ -28,6 +28,7 @@ const NOTIFY_QUEUE = new Set();
 let isNotifyQueued = false;
 
 export const isObservable = obj => !!obj[OBSERVABLE_IDENTIFIER];
+export const isPropObservable = (obj, prop) => obj && prop && isObservable(obj) && !!obj[OBSERVABLE_IDENTIFIER].props[prop];
 
 // DEV MODE
 // This facilitates when in dev mode and using npm link'ed package.
@@ -101,9 +102,8 @@ export function objectWatchProp(obj, prop, callback) {
     }
 
     // Convert prop to observable?
-    if (prop && !obj[OBSERVABLE_IDENTIFIER].props[prop]) {
-        setupPropState(obj, prop);
-        setupPropInterceptors(obj, prop);
+    if (prop && !isPropObservable(obj, prop)) {
+        setupPropAsObservable(obj, prop);
     }
     // Else: do we need to setup the interceptors (again)?
     // (Used by Computed props when they are created against a prop has
@@ -141,7 +141,7 @@ export function objectWatchProp(obj, prop, callback) {
 
 export function setupObjState(obj) {
     if (!isObservable(obj)) {
-        objectDefineProperty(obj, OBSERVABLE_IDENTIFIER, {
+        objectDefineProperty(obj, OBSERVABLE_IDENTIFIER, { // FIXME: use `getPropertyDescriptor()` from @purtuga/common
             configurable: true,
             writable: true,
             deep: false,
@@ -164,7 +164,7 @@ function setupCallbackStore (store, async = false) {
 }
 
 function setupPropState(obj, prop) {
-    if (!obj[OBSERVABLE_IDENTIFIER].props[prop]) {
+    if (!isPropObservable(obj, prop)) {
         obj[OBSERVABLE_IDENTIFIER].props[prop] = {
             val: undefined,
             dependents: new Set(),
@@ -193,7 +193,7 @@ function setupPropInterceptors(obj, prop) {
         }
     }
 
-    objectDefineProperty(obj, prop, {
+    objectDefineProperty(obj, prop, { // FIXME: use `getPropertyDescriptor()` from @purtuga/common
         configurable: propOldDescriptor.configurable || false,
         enumerable: propOldDescriptor.enumerable || false,
         get() {
@@ -240,6 +240,11 @@ function setupPropInterceptors(obj, prop) {
     if (propOldDescriptor === DEFAULT_PROP_DEFINITION) {
         obj[OBSERVABLE_IDENTIFIER].watchers.notify();
     }
+}
+
+export function setupPropAsObservable(obj, prop) {
+    setupPropState(obj, prop);
+    setupPropInterceptors(obj, prop);
 }
 
 /**
@@ -305,8 +310,7 @@ function walkObject(obj, force) {
 
     for (let i=0, t=keys.length; i<t; i++) {
         if (!obj[OBSERVABLE_IDENTIFIER].props[keys[i]]) {
-            setupPropState(obj, keys[i]);
-            setupPropInterceptors(obj, keys[i]);
+            setupPropAsObservable(obj, keys[i]);
         }
 
         // Do we need to walk this property's value?
@@ -442,14 +446,14 @@ export function stopTrackerNotification(callback) {
  */
 function setCallbackAsWatcherOf(callback, watchersSet) {
     if (!callback[WATCHER_IDENTIFIER]) {
-        objectDefineProperty(callback, WATCHER_IDENTIFIER, {
+        objectDefineProperty(callback, WATCHER_IDENTIFIER, { // FIXME: use `getPropertyDescriptor()` from @purtuga/common
             configurable: true,
             writable: true,
             value: {
                 watching: new Set()
             }
         });
-        objectDefineProperty(callback, "stopWatchingAll", {
+        objectDefineProperty(callback, "stopWatchingAll", { // FIXME: use `getPropertyDescriptor()` from @purtuga/common
             configurable: true,
             writable: true,
             value() {
@@ -493,7 +497,7 @@ export function makeArrayWatchable(arr) {
     if (!arrCurrentProto[ARRAY_WATCHABLE_PROTO]) {
         const arrProtoInterceptor = Object.create(arrCurrentProto);
         ARRAY_MUTATING_METHODS.forEach(method => {
-            objectDefineProperty(arrProtoInterceptor, method, {
+            objectDefineProperty(arrProtoInterceptor, method, { // FIXME: use `getPropertyDescriptor()` from @purtuga/common
                 configurable: true,
                 writable: true,
                 value: function arrayMethodInterceptor(...args) {
@@ -507,7 +511,7 @@ export function makeArrayWatchable(arr) {
         });
 
         // VALUE ADD: include a `size` read only attribute
-        objectDefineProperty(arrProtoInterceptor, "size", {
+        objectDefineProperty(arrProtoInterceptor, "size", { // FIXME: use `getPropertyDescriptor()` from @purtuga/common
             configurable: true,
             get() {
                 if (TRACKERS.size) {
@@ -526,7 +530,7 @@ export function makeArrayWatchable(arr) {
         });
 
         // Store the new interceptor prototype on the real prototype
-        objectDefineProperty(arrCurrentProto, ARRAY_WATCHABLE_PROTO, {
+        objectDefineProperty(arrCurrentProto, ARRAY_WATCHABLE_PROTO, { // FIXME: use `getPropertyDescriptor()` from @purtuga/common
             configurable: true,
             writable: true,
             value: arrProtoInterceptor
