@@ -1,8 +1,8 @@
 import {
-    objectDefineProperty,
     objectKeys,
     isArray,
-    isObject
+    isObject,
+    defineProperty
 } from "@purtuga/common/src/jsutils/runtime-aliases";
 import Set from "@purtuga/common/src/jsutils/Set"
 import nextTick from "@purtuga/common/src/jsutils/nextTick"
@@ -33,10 +33,12 @@ export const isPropObservable = (obj, prop) => obj && prop && isObservable(obj) 
 // DEV MODE
 // This facilitates when in dev mode and using npm link'ed package.
 if (process.env.NODE_ENV !== "production") {
-    if (!window._OBSERVABLE_TRACKERS ) {
-        window._OBSERVABLE_TRACKERS = TRACKERS;
-    } else {
-        TRACKERS = window._OBSERVABLE_TRACKERS;
+    if (typeof window !== "undefined") {
+        if (!window._OBSERVABLE_TRACKERS ) {
+            window._OBSERVABLE_TRACKERS = TRACKERS;
+        } else {
+            TRACKERS = window._OBSERVABLE_TRACKERS;
+        }
     }
 }
 
@@ -141,17 +143,18 @@ export function objectWatchProp(obj, prop, callback) {
 
 export function setupObjState(obj) {
     if (!isObservable(obj)) {
-        objectDefineProperty(obj, OBSERVABLE_IDENTIFIER, { // FIXME: use `getPropertyDescriptor()` from @purtuga/common
-            configurable: true,
-            writable: true,
-            deep: false,
-            value: {
+        defineProperty(
+            obj,
+            OBSERVABLE_IDENTIFIER,
+            {
+                deep: false,
                 props: {},
                 dependents: new Set(),
                 watchers: new Set(),
                 storeCallback: storeCallback
             }
-        });
+        );
+
         setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].dependents, false);
         setupCallbackStore(obj[OBSERVABLE_IDENTIFIER].watchers, true);
     }
@@ -193,10 +196,11 @@ function setupPropInterceptors(obj, prop) {
         }
     }
 
-    objectDefineProperty(obj, prop, { // FIXME: use `getPropertyDescriptor()` from @purtuga/common
-        configurable: propOldDescriptor.configurable || false,
-        enumerable: propOldDescriptor.enumerable || false,
-        get() {
+    defineProperty(
+        obj,
+        prop,
+        undefined,
+        function() {
             if (TRACKERS.size) {
                 TRACKERS.forEach(
                     obj[OBSERVABLE_IDENTIFIER].props[prop].storeCallback,
@@ -210,7 +214,7 @@ function setupPropInterceptors(obj, prop) {
 
             return obj[OBSERVABLE_IDENTIFIER].props[prop].val;
         },
-        set(newVal) {
+        function(newVal) {
             const priorVal = obj[prop];
             if (propOldDescriptor.set) {
                 newVal = propOldDescriptor.set.call(obj, newVal);
@@ -231,8 +235,10 @@ function setupPropInterceptors(obj, prop) {
             }
 
             return newVal;
-        }
-    });
+        },
+        propOldDescriptor.configurable || false,
+        propOldDescriptor.enumerable || false
+    );
 
     obj[OBSERVABLE_IDENTIFIER].props[prop].setupInterceptors = false;
 
@@ -446,22 +452,13 @@ export function stopTrackerNotification(callback) {
  */
 function setCallbackAsWatcherOf(callback, watchersSet) {
     if (!callback[WATCHER_IDENTIFIER]) {
-        objectDefineProperty(callback, WATCHER_IDENTIFIER, { // FIXME: use `getPropertyDescriptor()` from @purtuga/common
-            configurable: true,
-            writable: true,
-            value: {
-                watching: new Set()
-            }
-        });
-        objectDefineProperty(callback, "stopWatchingAll", { // FIXME: use `getPropertyDescriptor()` from @purtuga/common
-            configurable: true,
-            writable: true,
-            value() {
-                callback[WATCHER_IDENTIFIER].watching.forEach(watcherList =>
-                    watcherList.delete(callback)
-                );
-                callback[WATCHER_IDENTIFIER].watching.clear();
-            }
+        defineProperty(callback, WATCHER_IDENTIFIER, { watching: new Set() });
+
+        defineProperty(callback, "stopWatchingAll", function(){
+            callback[WATCHER_IDENTIFIER].watching.forEach(watcherList =>
+                watcherList.delete(callback)
+            );
+            callback[WATCHER_IDENTIFIER].watching.clear();
         });
     }
 
@@ -497,44 +494,31 @@ export function makeArrayWatchable(arr) {
     if (!arrCurrentProto[ARRAY_WATCHABLE_PROTO]) {
         const arrProtoInterceptor = Object.create(arrCurrentProto);
         ARRAY_MUTATING_METHODS.forEach(method => {
-            objectDefineProperty(arrProtoInterceptor, method, { // FIXME: use `getPropertyDescriptor()` from @purtuga/common
-                configurable: true,
-                writable: true,
-                value: function arrayMethodInterceptor(...args) {
-                    // FIXME: need to call `makeObservable` on any value that was inserted, if `deep` is true
-                    const response = arrCurrentProto[method].call(this, ...args);
-                    this[OBSERVABLE_IDENTIFIER].dependents.notify();
-                    this[OBSERVABLE_IDENTIFIER].watchers.notify();
-                    return response;
-                }
+            defineProperty(arrProtoInterceptor, method, function arrayMethodInterceptor(...args) {
+                // FIXME: need to call `makeObservable` on any value that was inserted, if `deep` is true
+                const response = arrCurrentProto[method].call(this, ...args);
+                this[OBSERVABLE_IDENTIFIER].dependents.notify();
+                this[OBSERVABLE_IDENTIFIER].watchers.notify();
+                return response;
             });
         });
 
         // VALUE ADD: include a `size` read only attribute
-        objectDefineProperty(arrProtoInterceptor, "size", { // FIXME: use `getPropertyDescriptor()` from @purtuga/common
-            configurable: true,
-            get() {
-                if (TRACKERS.size) {
-                    TRACKERS.forEach(
-                        this[OBSERVABLE_IDENTIFIER].storeCallback,
-                        this[OBSERVABLE_IDENTIFIER]
-                    );
-                }
-                return this.length;
+        defineProperty(arrProtoInterceptor, "size", undefined, function(){
+            if (TRACKERS.size) {
+                TRACKERS.forEach(
+                    this[OBSERVABLE_IDENTIFIER].storeCallback,
+                    this[OBSERVABLE_IDENTIFIER]
+                );
             }
+            return this.length;
         });
 
         // Add flag to new array interceptor prototype indicating its watchable
-        objectDefineProperty(arrProtoInterceptor, HAS_ARRAY_WATCHABLE_PROTO, {
-            value: true
-        });
+        defineProperty(arrProtoInterceptor, HAS_ARRAY_WATCHABLE_PROTO, true);
 
         // Store the new interceptor prototype on the real prototype
-        objectDefineProperty(arrCurrentProto, ARRAY_WATCHABLE_PROTO, { // FIXME: use `getPropertyDescriptor()` from @purtuga/common
-            configurable: true,
-            writable: true,
-            value: arrProtoInterceptor
-        });
+        defineProperty(arrCurrentProto, ARRAY_WATCHABLE_PROTO, arrProtoInterceptor);
     }
 
     arr.__proto__ = arrCurrentProto[ARRAY_WATCHABLE_PROTO]; // eslint-disable-line
