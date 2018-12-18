@@ -137,7 +137,7 @@ function getElementDescriptorForProp(propName, computedGetter) {
         delete this[propName];
 
         if (computedGetter) {
-            objectCreateComputedProp(this, computedGetter);
+            objectCreateComputedProp(this, propName, computedGetter);
         } else {
             ensurePropIsObservable(this, propName);
         }

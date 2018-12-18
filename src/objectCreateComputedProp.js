@@ -1,4 +1,4 @@
-import {objectDefineProperty} from "@purtuga/common/src/jsutils/runtime-aliases"
+import {defineProperty} from "@purtuga/common/src/jsutils/runtime-aliases.js"
 import {
     OBSERVABLE_IDENTIFIER,
     objectWatchProp,
@@ -6,21 +6,48 @@ import {
     unsetDependencyTracker,
     queueCallbackAndScheduleRun,
     makeObservable
-} from "./objectWatchProp";
+} from "./objectWatchProp.js";
+
+//================================================================================
 
 /**
  * Creates a computed property on a given object.
  *
  * @param {Object} obj
+ *
  * @param {String} prop
+ *
  * @param {Function} setter
  *  A callback function that will be used to retrieve the computed prop's
  *  value. Function is called with a context (`this`) of the object and
  *  will receive one input param - the Object itself.
+ *  Callback is executed only when the property is accessed or a tracked
+ *  dependency changes AND watchers or dependents on this computed exist.
+ *  To force a value to be generated everytime (even if no dependents/watchers)
+ *  add a property to the function named `forceExec=true`.
+ *
  * @param {Boolean} [enumerable=true]
  *
+ * @example
+ * const obj = {
+ *     firstName: "paul",
+ *     lastName: "Tavares"
+ * };
+ *
+ * objectCreateComputedProp(obj, "name", function () {
+ *     return `${ this.firstName } ${ this.lastName }`;
+ * });
+ *
+ * // Or, to always force the callback to generate a value
+ * function generateName() {
+ *     return `${ this.firstName } ${ this.lastName }`;
+ * }
+ * generateName.forceExec = true;
+ * objectCreateComputedProp(obj, "name", genereateName);
+ *
+ *
  */
-export function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
+function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
     let propValue;
     let newValue;
     let needsInitialization = true;
@@ -37,15 +64,12 @@ export function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
         // If we have watchers on this computed prop, then queue the
         // value generator function.
         // else, just notify dependents.
-        if (obj[OBSERVABLE_IDENTIFIER].props[prop].watchers.size) {
+        if (setter.forceExec || obj[OBSERVABLE_IDENTIFIER].props[prop].watchers.size) {
             queueCallbackAndScheduleRun(setPropValue);
         }
         else if (obj[OBSERVABLE_IDENTIFIER].props[prop].dependents.size) {
             obj[OBSERVABLE_IDENTIFIER].props[prop].dependents.notify();
         }
-
-        // FIXME: create option to ALWAYS trigger setter on change?
-        //          So that other system (like VueJS) can get notified of changes?
     };
 
     const setPropValue = silentSet => {
@@ -103,10 +127,11 @@ export function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
         }
     }
 
-    objectDefineProperty(obj, prop, {
-        configurable: true,
-        enumerable: !!enumerable,
-        get() {
+    defineProperty(
+        obj,
+        prop,
+        undefined,
+        function(){
             if (needsInitialization) {
                 needsInitialization = false;
                 setPropValue(true);
@@ -117,15 +142,19 @@ export function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
 
             return propValue;
         },
-        set(newValue) {
+        function () {
             if (allowSet) {
                 propValue = newValue;
             }
             return propValue;
-        }
-    });
+        },
+        true,
+        !!enumerable
+    );
 
     objectWatchProp(obj, prop);
 }
 
+//=======================================================[ EXPORTS ]==========
 export default objectCreateComputedProp;
+export { objectCreateComputedProp }

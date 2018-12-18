@@ -30,6 +30,7 @@
         "setup:dev": "node node_modules/@purtuga/project-base/scripts/create-dev",
         "lint": "eslint -c ./node_modules/@purtuga/project-base/configs/eslint.config.js src/**/*.js",
         "lint:fix": "eslint -c ./node_modules/@purtuga/project-base/configs/eslint.config.js --fix src/**/*.js",
+        "preversion": "npm run test",
         "version": "npm run dist&&git add dist/*",
         "test": "tape -r esm test/**/*.js"
     },
