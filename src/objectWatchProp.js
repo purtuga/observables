@@ -3,9 +3,9 @@ import {
     isArray,
     isObject,
     defineProperty
-} from "@purtuga/common/src/jsutils/runtime-aliases";
-import Set from "@purtuga/common/src/jsutils/Set"
-import nextTick from "@purtuga/common/src/jsutils/nextTick"
+} from "@purtuga/common/src/jsutils/runtime-aliases.js";
+import Set from "@purtuga/common/src/jsutils/Set.js"
+import nextTick from "@purtuga/common/src/jsutils/nextTick.js"
 
 //---------------------------------------------------------------------------
 export const OBSERVABLE_IDENTIFIER = "___$observable$___";

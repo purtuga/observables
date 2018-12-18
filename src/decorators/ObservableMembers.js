@@ -6,8 +6,11 @@ import {
     setupPropAsObservable
 } from "../objectWatchProp.js";
 import {throwIfThisIsPrototype} from "@purtuga/common/src/jsutils/throwIfThisIsPrototype.js";
+import {getPropertyDescriptor, isArray, objectKeys} from "@purtuga/common/src/jsutils/runtime-aliases.js";
+import objectCreateComputedProp from "../objectCreateComputedProp.js";
 
 //====================================================================
+let isSettingUp = false;
 const NOOP = () => undefined;
 NOOP.destroy = NOOP;
 
@@ -27,15 +30,37 @@ NOOP.destroy = NOOP;
  * @param {Object} [options.computed]
  *
  * @returns {Function}
+ *
+ * @example
+ *
+ * @ObservableMembers({
+ *     props: ["firstName", "lastName"],
+ *     computed: {
+ *         name() {
+ *             return `${ this.firstName } ${ this.lastName }`;
+ *         }
+ *     }
+ * })
+ * class Model {}
+ *
  */
-export function ObservableMembers(options = {}) {
+function ObservableMembers(options = {}) {
     return function (classDescriptor) {
         if (!options.noMethods) {
             addMethodsToClassDescriptor(classDescriptor);
         }
 
-        // FIXME: implement `props`
-        // FIXME: implement `computed`
+        // Add props to the prototype
+        if (isArray(options.props)) {
+            options.props.forEach(propName => getElementDescriptorForProp(propName));
+        }
+
+        // Add computed to the prototype
+        if (options.computed) {
+            objectKeys(options.computed).forEach(
+                propName => getElementDescriptorForProp(propName, options.computed[propName])
+            );
+        }
 
         return classDescriptor;
     }
@@ -49,24 +74,18 @@ function addMethodsToClassDescriptor (classDescriptor) {
             kind: "method",
             key: "$on",
             placement: "prototype",
-            descriptor: { // FIXME: use `getPropertyDescriptor()` from @purtuga/common
-                configurable: true,
-                value: $onClassHandler
-            }
+            descriptor: getPropertyDescriptor($onMethodHandler)
         },
         {
             kind: "method",
             key: "$prop",
             placement: "prototype",
-            descriptor: { // FIXME: use `getPropertyDescriptor()` from @purtuga/common
-                configurable: true,
-                value: $propClassHandler
-            }
+            descriptor:getPropertyDescriptor($propMethodHandler)
         }
     );
 }
 
-function $onClassHandler(propName, callback) {
+function $onMethodHandler(propName, callback) {
     throwIfThisIsPrototype(this);
     if (propName) {
         return objectWatchProp(this, propName, callback);
@@ -74,15 +93,11 @@ function $onClassHandler(propName, callback) {
     return NOOP;
 }
 
-function $propClassHandler(propName) {
+function $propMethodHandler(propName) {
     throwIfThisIsPrototype(this);
     if (propName) {
-        if (isObservable(this)) {
-            setupObjState(this);
-        }
-        if (isPropObservable(this, propName)) {
-            setupPropAsObservable(this, propName);
-        }
+        ensurePropIsObservable(this, propName);
+
         // Update mode?
         if (arguments.length > 1) {
             this[propName] = arguments[0];
@@ -92,7 +107,61 @@ function $propClassHandler(propName) {
     }
 }
 
-function removeKeyFromClassDescriptor(key, classDesriptor) {
-
+function ensurePropIsObservable(obj, propName) {
+    if (isObservable(obj)) {
+        setupObjState(obj);
+    }
+    if (isPropObservable(obj, propName)) {
+        setupPropAsObservable(obj, propName);
+    }
 }
 
+function removeKeyFromClassDescriptor(key, {elements}) {
+    for (let i = 0, t = elements.length; i < t; i++) {
+        if (elements[i].key === key) {
+            elements.splice(i, 1);
+            break;
+        }
+    }
+}
+
+function getElementDescriptorForProp(propName, computedGetter) {
+    const propLazySetup = function() {
+        throwIfThisIsPrototype(this);
+
+        if (isSettingUp) { // Fuck you IE
+            return;
+        }
+
+        isSettingUp = true;
+        delete this[propName];
+
+        if (computedGetter) {
+            objectCreateComputedProp(this, computedGetter);
+        } else {
+            ensurePropIsObservable(this, propName);
+        }
+
+        isSettingUp = false;
+
+        // Was property being update?
+        if (arguments.length) {
+            this[propName] = arguments[0];
+        }
+
+        return this[propName];
+    };
+
+    return {
+        key: propName,
+        kind: "method",
+        placement: "prototype",
+        descriptor: getPropertyDescriptor(undefined, propLazySetup, propLazySetup)
+    }
+}
+
+
+//=====================================================[ EXPORTS ]========
+export {
+    ObservableMembers
+}
