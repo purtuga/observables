@@ -1,10 +1,10 @@
 import {defineProperty} from "@purtuga/common/src/jsutils/runtime-aliases.js"
+import nextTick from "@purtuga/common/src/jsutils/nextTick.js"
 import {
     OBSERVABLE_IDENTIFIER,
     objectWatchProp,
     setDependencyTracker,
     unsetDependencyTracker,
-    queueCallbackAndScheduleRun,
     makeObservable
 } from "./objectWatchProp.js";
 
@@ -65,7 +65,7 @@ function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
         // value generator function.
         // else, just notify dependents.
         if (setter.forceExec || obj[OBSERVABLE_IDENTIFIER].props[prop].watchers.size) {
-            queueCallbackAndScheduleRun(setPropValue);
+            nextTick.queue(setPropValue);
         }
         else if (obj[OBSERVABLE_IDENTIFIER].props[prop].dependents.size) {
             obj[OBSERVABLE_IDENTIFIER].props[prop].dependents.notify();

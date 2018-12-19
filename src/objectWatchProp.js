@@ -24,9 +24,8 @@ const ARRAY_MUTATING_METHODS = [
     "sort",
     "reverse"
 ];
-const NOTIFY_QUEUE = new Set();
-let isNotifyQueued = false;
 
+const queueForNextTick = nextTick.queue;
 export const isObservable = obj => !!obj[OBSERVABLE_IDENTIFIER];
 export const isPropObservable = (obj, prop) => obj && prop && isObservable(obj) && !!obj[OBSERVABLE_IDENTIFIER].props[prop];
 
@@ -347,39 +346,14 @@ function notify() {
     } else {
         this.forEach(pushCallbacksToQueue);
     }
-
-    queueCallbackAndScheduleRun();
-}
-
-export function queueCallbackAndScheduleRun(cb) {
-    if (cb) {
-        pushCallbacksToQueue(cb);
-    }
-
-    if (isNotifyQueued || !NOTIFY_QUEUE.size) {
-        return;
-    }
-
-    isNotifyQueued = true;
-    nextTick(flushQueue);
 }
 
 function pushCallbacksToQueue(callback) {
-    NOTIFY_QUEUE.add(callback);
+    queueForNextTick(callback);
 }
 
 function execCallback(cb) {
     cb();
-}
-
-function flushQueue() {
-    const queuedCallbacks = [...NOTIFY_QUEUE];
-    NOTIFY_QUEUE.clear();
-    isNotifyQueued = false;
-    for (let x=0, total=queuedCallbacks.length; x<total; x++) {
-        queuedCallbacks[x]();
-    }
-    queuedCallbacks.length = 0;
 }
 
 function storeCallback(callback) {
