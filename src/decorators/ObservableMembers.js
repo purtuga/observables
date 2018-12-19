@@ -6,7 +6,7 @@ import {
     setupPropAsObservable
 } from "../objectWatchProp.js";
 import {throwIfThisIsPrototype} from "@purtuga/common/src/jsutils/throwIfThisIsPrototype.js";
-import {getPropertyDescriptor, isArray, objectKeys} from "@purtuga/common/src/jsutils/runtime-aliases.js";
+import {getPropertyDescriptor, isArray, isObject, objectKeys} from "@purtuga/common/src/jsutils/runtime-aliases.js";
 import objectCreateComputedProp from "../objectCreateComputedProp.js";
 
 //====================================================================
@@ -23,7 +23,7 @@ NOOP.destroy = NOOP;
  * @param {Object} [options]
  *
  * @param {Array} [options.noMethods]
- *  If true, then class will not be decorated with the class methods (`$prop()`, `$on()`)
+ *  If true, then class will not be decorated with the class methods (`$prop()`, `$on()`, `$assign`)
  *
  * @param {Array} [options.props]
  *
@@ -52,19 +52,30 @@ function ObservableMembers(options = {}) {
 
         // Add props to the prototype
         if (isArray(options.props)) {
-            options.props.forEach(propName => getElementDescriptorForProp(propName));
+            classDescriptor.elements.push(
+                ...options.props.map(propName => getElementDescriptorForProp(propName))
+            )
         }
 
         // Add computed to the prototype
         if (options.computed) {
             objectKeys(options.computed).forEach(
-                propName => getElementDescriptorForProp(propName, options.computed[propName])
+                propName => classDescriptor.elements.push(getElementDescriptorForProp(propName, options.computed[propName]))
             );
         }
 
         return classDescriptor;
     }
 }
+
+function observable() {
+    //FIXME: create @observable prop decorator
+}
+
+function computed() {
+    // FIXME: create @computed prop decorator
+}
+
 
 function addMethodsToClassDescriptor (classDescriptor) {
     removeKeyFromClassDescriptor("$on", classDescriptor);
@@ -81,6 +92,12 @@ function addMethodsToClassDescriptor (classDescriptor) {
             key: "$prop",
             placement: "prototype",
             descriptor:getPropertyDescriptor($propMethodHandler)
+        },
+        {
+            kind: "method",
+            key: "$assign",
+            placement: "prototype",
+            descriptor:getPropertyDescriptor($assignMethodHandler)
         }
     );
 }
@@ -107,11 +124,21 @@ function $propMethodHandler(propName) {
     }
 }
 
+function $assignMethodHandler(obj) {
+    throwIfThisIsPrototype(this);
+    if (isObject(obj)) {
+        objectKeys(obj).forEach(propName => {
+            ensurePropIsObservable(this, propName);
+            this[propName] = obj[propName];
+        });
+    }
+}
+
 function ensurePropIsObservable(obj, propName) {
-    if (isObservable(obj)) {
+    if (!isObservable(obj)) {
         setupObjState(obj);
     }
-    if (isPropObservable(obj, propName)) {
+    if (!isPropObservable(obj, propName)) {
         setupPropAsObservable(obj, propName);
     }
 }
@@ -156,7 +183,13 @@ function getElementDescriptorForProp(propName, computedGetter) {
         key: propName,
         kind: "method",
         placement: "prototype",
-        descriptor: getPropertyDescriptor(undefined, propLazySetup, propLazySetup)
+        descriptor: getPropertyDescriptor(
+            undefined,
+            propLazySetup,
+            propLazySetup,
+            true,
+            true
+        )
     }
 }
 

@@ -3,7 +3,7 @@
     "version": "2.1.0",
     "description": "observe things and get notified when those things mutate",
     "main": "src/index.js",
-    "module": "dist/observables.esm.min.js",
+    "module": "src/index.js",
     "scripts": {
         "serve": "webpack-dev-server --config node_modules/@purtuga/project-base/configs/webpack.config.js --progress --hot --color --entry ./my.dev/index.js",
         "serve:test": "webpack-dev-server --config node_modules/@purtuga/project-base/configs/webpack.config.js --entry ./test/index.js --output-path ./my.dev --output-filename test.bundle.js",
