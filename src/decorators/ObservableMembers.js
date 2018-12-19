@@ -124,8 +124,10 @@ function $assignMethodHandler(obj) {
     throwIfThisIsPrototype(this);
     if (isObject(obj)) {
         objectKeys(obj).forEach(propName => {
-            ensurePropIsObservable(this, propName);
+            // IMPORTANT: prop could be a "lazy" setup one,
+            // so we assign value first, then ensure its observable.
             this[propName] = obj[propName];
+            ensurePropIsObservable(this, propName);
         });
     }
 }
@@ -175,18 +177,18 @@ function getElementDescriptorForProp(propName, computedGetter) {
         return this[propName];
     };
 
-    return {
-        key: propName,
-        kind: "method",
-        placement: "prototype",
-        descriptor: getPropertyDescriptor(
+    return getElementDescriptor(
+        "method",
+        propName,
+        "prototype",
+        getPropertyDescriptor(
             undefined,
             propLazySetup,
             propLazySetup,
             true,
             true
         )
-    }
+    );
 }
 
 
