@@ -49,7 +49,7 @@
     },
     "homepage": "https://github.com/purtuga/observables#readme",
     "devDependencies": {
-        "@purtuga/common": "^3.8.0",
+        "@purtuga/common": "^3.9.0",
         "@purtuga/project-base": "^2.4.1",
         "tape": "^4.9.1"
     }

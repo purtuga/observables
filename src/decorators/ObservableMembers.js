@@ -7,10 +7,17 @@ import {
 } from "../objectWatchProp.js";
 import {throwIfThisIsPrototype} from "@purtuga/common/src/jsutils/throwIfThisIsPrototype.js";
 import {getPropertyDescriptor, isArray, isObject, objectKeys} from "@purtuga/common/src/jsutils/runtime-aliases.js";
+import {getElementDescriptor} from "@purtuga/common/src/jsutils/decorator-utils.js";
 import objectCreateComputedProp from "../objectCreateComputedProp.js";
+
 
 //====================================================================
 let isSettingUp = false;
+const METHODS = [
+    ["$on", $onMethodHandler],
+    ["$prop", $propMethodHandler],
+    ["$assign", $assignMethodHandler]
+];
 const NOOP = () => undefined;
 NOOP.destroy = NOOP;
 
@@ -81,24 +88,13 @@ function addMethodsToClassDescriptor (classDescriptor) {
     removeKeyFromClassDescriptor("$on", classDescriptor);
     removeKeyFromClassDescriptor("$prop", classDescriptor);
     classDescriptor.elements.push(
-        {
-            kind: "method",
-            key: "$on",
-            placement: "prototype",
-            descriptor: getPropertyDescriptor($onMethodHandler)
-        },
-        {
-            kind: "method",
-            key: "$prop",
-            placement: "prototype",
-            descriptor:getPropertyDescriptor($propMethodHandler)
-        },
-        {
-            kind: "method",
-            key: "$assign",
-            placement: "prototype",
-            descriptor:getPropertyDescriptor($assignMethodHandler)
-        }
+        ...METHODS.map(methodSetup => getElementDescriptor(
+                "method",
+                methodSetup[0],
+                "prototype",
+                getPropertyDescriptor(methodSetup[1])
+            )
+        )
     );
 }
 
