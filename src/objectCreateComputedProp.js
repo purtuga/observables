@@ -9,6 +9,7 @@ import {
 } from "./objectWatchProp.js";
 
 //================================================================================
+let alwaysForceExec = false;
 
 /**
  * Creates a computed property on a given object.
@@ -64,7 +65,7 @@ function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
         // If we have watchers on this computed prop, then queue the
         // value generator function.
         // else, just notify dependents.
-        if (setter.forceExec || obj[OBSERVABLE_IDENTIFIER].props[prop].watchers.size) {
+        if (alwaysForceExec || setter.forceExec || obj[OBSERVABLE_IDENTIFIER].props[prop].watchers.size) {
             nextTick.queue(setPropValue);
         }
         else if (obj[OBSERVABLE_IDENTIFIER].props[prop].dependents.size) {
@@ -155,6 +156,17 @@ function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
     objectWatchProp(obj, prop);
 }
 
+/**
+ * Set/unset the `forceExec` which (when `true` causes all computed value generator
+ * to always be called on dependency changes (even if internally to this library,
+ * there are no watchers/dependents on it).
+ *
+ * @param {Boolean} force
+ */
+function setForceExec(force) {
+    alwaysForceExec = force;
+}
+
 //=======================================================[ EXPORTS ]==========
 export default objectCreateComputedProp;
-export { objectCreateComputedProp }
+export { objectCreateComputedProp, setForceExec }
