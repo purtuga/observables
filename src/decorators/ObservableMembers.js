@@ -75,8 +75,28 @@ function ObservableMembers(options = {}) {
     }
 }
 
-function observable() {
-    //FIXME: create @observable prop decorator
+/**
+ * Class member decorator that will make that member observable.
+ *
+ * @param {Object} [options]
+ * @param {Boolean} [options.enumerable=true]
+ */
+function observable(options = {}) {
+
+    const observableDecorator = function (elementDescriptor) {
+        return getElementDescriptorForProp(
+            elementDescriptor.key,
+            null,
+            ("enumerable" in options) ? options.enumerable : true,
+            elementDescriptor.initializer || elementDescriptor.descriptor.get
+        );
+    };
+
+    if (options && options.key) {
+        return observableDecorator(options);
+    } else {
+        return observableDecorator;
+    }
 }
 
 function computed() {
@@ -131,16 +151,16 @@ function $assignMethodHandler(obj) {
     }
 }
 
-function ensurePropIsObservable(obj, propName) {
+function ensurePropIsObservable(obj, propName, configurable, enumerable) {
     if (!isObservable(obj)) {
         setupObjState(obj);
     }
     if (!isPropObservable(obj, propName)) {
-        setupPropAsObservable(obj, propName);
+        setupPropAsObservable(obj, propName, configurable, enumerable);
     }
 }
 
-function getElementDescriptorForProp(propName, computedGetter) {
+function getElementDescriptorForProp(propName, computedGetter, enumerable = true, valueInitializer = null) {
     const propLazySetup = function() {
         throwIfThisIsPrototype(this);
 
@@ -152,16 +172,19 @@ function getElementDescriptorForProp(propName, computedGetter) {
         delete this[propName];
 
         if (computedGetter) {
-            objectCreateComputedProp(this, propName, computedGetter);
+            objectCreateComputedProp(this, propName, computedGetter, enumerable);
         } else {
-            ensurePropIsObservable(this, propName);
+            ensurePropIsObservable(this, propName, null, enumerable);
         }
 
         isSettingUp = false;
 
-        // Was property being update?
+        // Was property being updated - if so, assign that value
+        // Else, if not a computed and we have a valueInitializer, then run that.
         if (arguments.length) {
             this[propName] = arguments[0];
+        } else if (!computedGetter && valueInitializer) {
+            this[propName] = valueInitializer.call(this);
         }
 
         return this[propName];
@@ -174,7 +197,7 @@ function getElementDescriptorForProp(propName, computedGetter) {
             propLazySetup,
             propLazySetup,
             true,
-            true
+            enumerable
         )
     );
 }
@@ -182,5 +205,7 @@ function getElementDescriptorForProp(propName, computedGetter) {
 
 //=====================================================[ EXPORTS ]========
 export {
-    ObservableMembers
+    ObservableMembers,
+    observable,
+    computed
 }

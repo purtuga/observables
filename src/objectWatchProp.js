@@ -28,6 +28,7 @@ const ARRAY_MUTATING_METHODS = [
 const queueForNextTick = nextTick.queue;
 export const isObservable = obj => !!obj[OBSERVABLE_IDENTIFIER];
 export const isPropObservable = (obj, prop) => obj && prop && isObservable(obj) && !!obj[OBSERVABLE_IDENTIFIER].props[prop];
+const isBoolean = b => ("boolean" === typeof b);
 
 // DEV MODE
 // This facilitates when in dev mode and using npm link'ed package.
@@ -182,7 +183,7 @@ function setupPropState(obj, prop) {
     return obj[OBSERVABLE_IDENTIFIER].props[prop];
 }
 
-function setupPropInterceptors(obj, prop) {
+function setupPropInterceptors(obj, prop, configurable, enumerable) {
     const propOldDescriptor =
         Object.getOwnPropertyDescriptor(obj, prop) || DEFAULT_PROP_DEFINITION;
 
@@ -235,8 +236,8 @@ function setupPropInterceptors(obj, prop) {
 
             return newVal;
         },
-        propOldDescriptor.configurable || false,
-        propOldDescriptor.enumerable || false
+        isBoolean(configurable) ? configurable :  propOldDescriptor.configurable || false,
+        isBoolean(enumerable) ? enumerable : propOldDescriptor.enumerable || false
     );
 
     obj[OBSERVABLE_IDENTIFIER].props[prop].setupInterceptors = false;
@@ -247,9 +248,9 @@ function setupPropInterceptors(obj, prop) {
     }
 }
 
-export function setupPropAsObservable(obj, prop) {
+export function setupPropAsObservable(obj, prop, configurable, enumerable) {
     setupPropState(obj, prop);
-    setupPropInterceptors(obj, prop);
+    setupPropInterceptors(obj, prop, configurable, enumerable);
 }
 
 /**
