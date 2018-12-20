@@ -85,13 +85,9 @@ function computed() {
 
 
 function addMethodsToClassDescriptor (classDescriptor) {
-    removeKeyFromClassDescriptor("$on", classDescriptor);
-    removeKeyFromClassDescriptor("$prop", classDescriptor);
     classDescriptor.elements.push(
         ...METHODS.map(methodSetup => getElementDescriptor(
-                "method",
                 methodSetup[0],
-                "prototype",
                 getPropertyDescriptor(methodSetup[1])
             )
         )
@@ -109,14 +105,17 @@ function $onMethodHandler(propName, callback) {
 function $propMethodHandler(propName) {
     throwIfThisIsPrototype(this);
     if (propName) {
-        ensurePropIsObservable(this, propName);
-
         // Update mode?
         if (arguments.length > 1) {
-            this[propName] = arguments[0];
+            this[propName] = arguments[1];
         }
-
-        return this[propName];
+        // IMPORTANT: ensure the property lazy setup is done prior to running
+        // ensurePropIsObservable. This will ensure that any prop that was defined
+        // initially has its setup done, prior to evaluating if prop is observable
+        // (case its a prop not initially defined).
+        const response = this[propName];
+        ensurePropIsObservable(this, propName);
+        return response;
     }
 }
 
@@ -138,15 +137,6 @@ function ensurePropIsObservable(obj, propName) {
     }
     if (!isPropObservable(obj, propName)) {
         setupPropAsObservable(obj, propName);
-    }
-}
-
-function removeKeyFromClassDescriptor(key, {elements}) {
-    for (let i = 0, t = elements.length; i < t; i++) {
-        if (elements[i].key === key) {
-            elements.splice(i, 1);
-            break;
-        }
     }
 }
 
@@ -178,9 +168,7 @@ function getElementDescriptorForProp(propName, computedGetter) {
     };
 
     return getElementDescriptor(
-        "method",
         propName,
-        "prototype",
         getPropertyDescriptor(
             undefined,
             propLazySetup,
