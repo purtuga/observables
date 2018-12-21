@@ -12,7 +12,6 @@ import objectCreateComputedProp from "../objectCreateComputedProp.js";
 
 
 //====================================================================
-let isSettingUp = false;
 const METHODS = [
     ["$on", $onMethodHandler],
     ["$prop", $propMethodHandler],
@@ -161,6 +160,8 @@ function ensurePropIsObservable(obj, propName, configurable, enumerable) {
 }
 
 function getElementDescriptorForProp(propName, computedGetter, enumerable = true, valueInitializer = null) {
+    let isSettingUp = false;
+
     const propLazySetup = function() {
         throwIfThisIsPrototype(this);
 
