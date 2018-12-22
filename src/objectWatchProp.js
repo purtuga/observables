@@ -259,7 +259,7 @@ export function setupPropAsObservable(obj, prop, configurable, enumerable) {
  * @param {Object|Array} obj
  * @param {Boolean} [walk=true]
  *  If `true` (default), the object's property values are walked and
- *  also make observable.
+ *  also made observable.
  * @param {Boolean} [force=false]
  *  if true, then even if object looks like it might have already been
  *  converted to an observable, it will still be walked

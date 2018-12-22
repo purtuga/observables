@@ -54,6 +54,7 @@ function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
     let needsInitialization = true;
     let allowSet = false;
     let needsNewValue = true;
+    let isGeneratingNewValue = false;
 
     const dependencyTracker = () => {
         if (needsNewValue) {
@@ -77,9 +78,13 @@ function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
         // if there is no longer a need to regenerate the value, exit.
         // this can happen when other logic accesses the computed getter
         // between scheduled updates.
-        if (!needsNewValue) {
+        // Also, in order to avoid looping, if value is currently being
+        // generated, then also exit.
+        if (!needsNewValue || isGeneratingNewValue) {
             return;
         }
+
+        isGeneratingNewValue = true;
 
         try {
             setDependencyTracker(dependencyTracker);
@@ -103,15 +108,13 @@ function objectCreateComputedProp(obj, prop, setter, enumerable = true) {
                 obj[prop] = newValue;
             }
         } catch (e) {
-            allowSet = false;
-            needsNewValue = false;
+            allowSet = needsNewValue = isGeneratingNewValue = false;
             newValue = undefined;
             unsetDependencyTracker(dependencyTracker);
             throw e;
         }
 
-        allowSet = false;
-        needsNewValue = false;
+        allowSet = needsNewValue = isGeneratingNewValue = false;
         newValue = undefined;
     };
 
