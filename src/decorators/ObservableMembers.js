@@ -81,8 +81,7 @@ function ObservableMembers(options = {}) {
  * @param {Boolean} [options.enumerable=true]
  */
 function observable(options = {}) {
-
-    const observableDecorator = function (elementDescriptor) {
+    const observableDecorator = function observableDecorator(elementDescriptor) {
         return getElementDescriptorForProp(
             elementDescriptor.key,
             null,
@@ -98,10 +97,47 @@ function observable(options = {}) {
     }
 }
 
-function computed() {
-    // FIXME: create @computed prop decorator
-}
 
+/**
+ * Class member decorator that will make that member observable.
+ *
+ * @param {Object} [options]
+ * @param {Boolean} [options.enumerable=true]
+ */
+function computed(options = {}) {
+    const observableDecorator = function observableDecorator(elementDescriptor) {
+        let computedValueGenerator;
+
+        if (elementDescriptor.kind === "field" && elementDescriptor.initializer) {
+            computedValueGenerator = elementDescriptor.initializer();
+        } else {
+            computedValueGenerator = elementDescriptor.descriptor.value || elementDescriptor.descriptor.get;
+        }
+
+        if (!computedValueGenerator) {
+            if (process.env.NODE_ENV !== "production") {
+                // eslint-disable-next-line
+                console.error(`[@computed()] Computed must be setup with function value 
+                which will act as the computed value generator. Example:
+                '@computed ${elementDescriptor.key} = function () {/*...*/}'`);
+            }
+
+            throw new Error("no computedValueGenerator");
+        }
+
+        return getElementDescriptorForProp(
+            elementDescriptor.key,
+            computedValueGenerator,
+            ("enumerable" in options) ? options.enumerable : true
+        );
+    };
+
+    if (options && options.key) {
+        return observableDecorator(options);
+    } else {
+        return observableDecorator;
+    }
+}
 
 function addMethodsToClassDescriptor (classDescriptor) {
     classDescriptor.elements.push(
