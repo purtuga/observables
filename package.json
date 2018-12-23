@@ -1,6 +1,6 @@
 {
     "name": "@purtuga/observables",
-    "version": "2.2.0",
+    "version": "2.3.0",
     "description": "observe things and get notified when those things mutate",
     "main": "src/index.js",
     "module": "src/index.js",
