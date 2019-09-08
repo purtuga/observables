@@ -70,8 +70,38 @@ export function trackObservableDependencies (options){
 }
 
 function setupClassMemberInterceptor (classDescriptor, superMethods, currentMemberDescriptor, memberName, getTracker, isStopMode) {
-    // Method does not exist on current (sub)class... Create it now
+    let origMethod;
+    const methodInterceptor = function methodInterceptor() {
+        let changeNotifier = getTracker.call(this, this);
+        let responseValue;
+        let err;
+
+        if (!isStopMode) {
+            setDependencyTracker(changeNotifier);
+        }
+
+        try {
+            responseValue = (origMethod || superMethods[memberName]).call(this, ...arguments);
+        } catch (e) {
+            err = e;
+        }
+
+        if (!isStopMode) {
+            unsetDependencyTracker(changeNotifier);
+        } else {
+            stopTrackerNotification(changeNotifier);
+        }
+
+        if (err) {
+            throw err;
+        }
+
+        return responseValue;
+    };
+
+    // Setup class member
     if (!currentMemberDescriptor) {
+        // Method does not exist on current (sub)class... Create its element defintion now
         superMethods[memberName] = null; // Need to get `super` method later.
 
         classDescriptor.elements.push({
@@ -80,32 +110,13 @@ function setupClassMemberInterceptor (classDescriptor, superMethods, currentMemb
             placement: "prototype",
             descriptor: {
                 configurable: true,
-                value: isStopMode
-                    ? function () {
-                        superMethods[memberName].call(this, ...arguments);
-                        stopTrackerNotification(getTracker.call(this, this));
-                    }
-                    : function () {
-                    const observableTracker = getTracker.call(this, this);
-                    setDependencyTracker(observableTracker);
-                    superMethods[memberName].call(this, ...arguments);
-                    unsetDependencyTracker(observableTracker);
-                }
+                value: methodInterceptor
             }
         });
     } else {
-        const currentMemberMethod = currentMemberDescriptor.descriptor.value;
-
+        // capture the prior Element's value (the method/function) and set the new value to be the interceptor
+        origMethod = currentMemberDescriptor.descriptor.value;
         currentMemberDescriptor.descriptor = Object.assign({}, currentMemberDescriptor.descriptor);
-        currentMemberDescriptor.descriptor.value = isStopMode
-            ? function () {
-                stopTrackerNotification(getTracker.call(this, this));
-            }
-            : function (){
-                const observableTracker = getTracker.call(this, this);
-                setDependencyTracker(observableTracker);
-                currentMemberMethod.call(this, ...arguments);
-                unsetDependencyTracker(observableTracker);
-            };
+        currentMemberDescriptor.descriptor.value = methodInterceptor
     }
 }
