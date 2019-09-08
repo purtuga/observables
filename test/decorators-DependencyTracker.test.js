@@ -1,5 +1,5 @@
 import {trackObservableDependencies} from "../src/decorators/DependencyTracker.js"
-import test from "tape-promise/tape"
+import test from "tape"
 import {makeObservable} from "../src/objectWatchProp.js";
 
 
@@ -37,50 +37,38 @@ test("\n# DependencyTracker Decorator\n#", sub => {
     sub.test("Tracks calls to methods executes notifier on data change", t => {
         t.plan(3);
 
-        const subTests = [];
         const kOne = new KlassOne();
 
         kOne.render();
-        subTests.push(t.equal(kOne.render(), "Paul Tavares"), "tracked method returns value");
+        t.equal(kOne.render(), "Paul Tavares", "tracked method returns value");
 
         kOne.data.first = "PAUL";
-        subTests.push(
-            delay().then(() => {
-                t.equal(kOne.renderInterceptCount, 1, "Notifier called on data change");
-            })
-        );
+        delay().then(() => {
+            t.equal(kOne.renderInterceptCount, 1, "Notifier called on data change");
+        });
 
-        subTests.push(t.equal(kOne.render(), "PAUL Tavares", "returns updated data value"));
-
-        return Promise.all(subTests);
+        t.equal(kOne.render(), "PAUL Tavares", "returns updated data value");
     });
 
     sub.test("Stops tracking when stop methods is invoked", t => {
         t.plan(3);
 
-        const subTests = [];
         const kOne = new KlassOne();
 
         kOne.render(); // get the notifier added to data observables
         kOne.data.first = "PAUL"; // trigger call to notifier
 
-        subTests.push(
-            delay().then(() => {
-                t.equal(kOne.renderInterceptCount, 1, "Notifier called on data change");
-            })
-        );
+        delay().then(() => {
+            t.equal(kOne.renderInterceptCount, 1, "Notifier called on data change");
+        });
 
         const destroyCallReturnValue = kOne.destroy(); // should remove notifier
         kOne.data.first = "Paul";
-        subTests.push(
-            delay().then(() => {
-                t.equal(kOne.renderInterceptCount, 1, "Notifier not called after stop method executed");
-            })
-        );
+        delay().then(() => {
+            t.equal(kOne.renderInterceptCount, 1, "Notifier not called after stop method executed");
+        });
 
-        subTests.push(t.equal(destroyCallReturnValue, "destroyed!", "stop method should return value"));
-
-        return Promise.all(subTests);
+        t.equal(destroyCallReturnValue, "destroyed!", "stop method should return value");
     });
 });
 
